@@ -6,7 +6,7 @@
   <DefaultLocale>en-US</DefaultLocale>
   <DisplayName DefaultValue="test"/>
   <Description DefaultValue="Write your own Excel functions in JavaScript."/>
-  <IconUrl DefaultValue="https://localhost:3000/assets/icon-32.png"/>
+  <IconUrl DefaultValue="https://amjadrabee.github.io/excel-addin-demo/"/>
   <HighResolutionIconUrl DefaultValue="https://localhost:3000/assets/icon-64.png"/>
   <SupportUrl DefaultValue="https://www.contoso.com/help"/>
   <AppDomains>
