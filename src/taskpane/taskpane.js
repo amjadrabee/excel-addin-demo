@@ -137,7 +137,7 @@ Office.onReady(() => {
       status.innerText = "🔄 Creating conversion job...";
       logToDebugPanel("Creating CloudConvert job...");
 
-      const apiKey = "YOUR_CLOUDCONVERT_API_KEY"; // replace with your actual key
+      const apiKey = "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiIxIiwianRpIjoiZGJmZTliNWJiOTBlMTY5OGNlZTdmZmI3NzIyZTg1MjgwMzQyODU3ZTYxY2M1MmZlNDAzMGVmZjdmZGM3YjdmZmRhZmE3NjYyMGQ0ODQyNGIiLCJpYXQiOjE3NTA1OTk2MjYuMjI3MTMyLCJuYmYiOjE3NTA1OTk2MjYuMjI3MTM0LCJleHAiOjQ5MDYyNzMyMjYuMjIzNTEzLCJzdWIiOiI3MjIzNTM3NCIsInNjb3BlcyI6WyJ0YXNrLnJlYWQiLCJ0YXNrLndyaXRlIl19.hmJsJlC28R-XMn8PvV10ZTnZD425ZUh4cBTpIsXMpFJ4FijCqgoibTKofRr7XgXHt8lkeMj9a3IJf8tfuLxx_U8OavhlxMRAG7MPBefKoaJynmp_ZxgI1GVS0W7NLp2jyo3iFnxSQa-H9qkWL8_TTfot72uGQsurnHy3LcwC-hLZfE63YMnndjSn3jFCGSCNOSELIIWosRZNkoHTegdRWL6rcKoIYcfi4Ff7EfwLL2w7-oTnSzICu-Lg-XnmoXRp_jf2AYEpEkvXnlOAKM86pBp3h3DlAcZZOsYr_WIJ8e8Ti4hmlAgwqD9yN76DZeQ65Wq9kBF2LbKiV8fh2WLERHDlA-0OKN92mo4qNvCsfThYgrRXcnNY9oMnYPHewaPwwT6PHv7DJGdLTHZUrtWc6mLLq1XpBzIMEzv1_qbrguot01lwrkkVACDZvnXaUPJ3plM04j6XlKf6qFPyoDNxR-ThbDjxpXqnCM57RDjE1E5ow3cXW2a_5jMFhCjvpMTyUkapzmXPDKF9rYTog4hw5aA6PRzIyS0yMIZB4VaxGM4S-tPwCJNdSdFSz7bssdTVnSf_h0GvlgUcp3en6qT6KfIIMGP7KAGsSZkB339Fu-7U7pJj7wosd1myL1-FXhauZI_YmL5W34SD6tLzvLbEfYfZ0pm9-lsSVXpMqgHlHLM"; // replace with your actual key
 
       // Step 1: Create job
       const jobRes = await fetch("https://api.cloudconvert.com/v2/jobs", {
