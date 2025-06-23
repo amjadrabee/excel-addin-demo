@@ -6,7 +6,7 @@
   <DefaultLocale>en-US</DefaultLocale>
   <DisplayName DefaultValue="test"/>
   <Description DefaultValue="Write your own Excel functions in JavaScript."/>
-  <IconUrl DefaultValue="https://amjadrabee.github.io/excel-addin-demo/taskpane.html"/>
+  <IconUrl DefaultValue="https://amjadrabee.github.io/excel-addin-demo/src/taskpane/taskpane.html"/>
   <!-- <HighResolutionIconUrl DefaultValue="https://localhost:3000/assets/icon-64.png"/> -->
   <!-- <SupportUrl DefaultValue="https://www.contoso.com/help"/> -->
   <AppDomains>
@@ -21,7 +21,7 @@
     </Sets>
   </Requirements>
   <DefaultSettings>
-    <SourceLocation DefaultValue="https://amjadrabee.github.io/excel-addin-demo/taskpane.html"/>
+    <SourceLocation DefaultValue="https://amjadrabee.github.io/excel-addin-demo/src/taskpane/taskpane.html"/>
   </DefaultSettings>
   <Permissions>ReadWriteDocument</Permissions>
   <VersionOverrides xmlns="http://schemas.microsoft.com/office/taskpaneappversionoverrides" xsi:type="VersionOverridesV1_0">
