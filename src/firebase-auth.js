@@ -1,16 +1,16 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+// firebase-auth.js
+import { initializeApp } from "firebase/app";
 import {
   getAuth,
   signInWithEmailAndPassword,
   signOut
-} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
-
+} from "firebase/auth";
 import {
   getFirestore,
   doc,
   setDoc,
   getDoc
-} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+} from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCjB5shAXVySxyEXiBfQNx3ifBHs0tGSq0",
@@ -25,21 +25,32 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-window.loginUser = async () => {
+export async function loginUser() {
   const email = document.getElementById("emailInput").value;
   const password = document.getElementById("passwordInput").value;
   const status = document.getElementById("login-status");
 
   try {
     const result = await signInWithEmailAndPassword(auth, email, password);
-    const sessionId = crypto.randomUUID();
+    const uid = result.user.uid;
 
-    await setDoc(doc(db, "sessions", result.user.uid), {
-      sessionId: sessionId
-    });
+    const docRef = doc(db, "sessions", uid);
+    const docSnap = await getDoc(docRef);
+
+    if (docSnap.exists()) {
+      const existingSessionId = docSnap.data().sessionId;
+      if (existingSessionId) {
+        status.textContent = "❌ This account is already logged in elsewhere.";
+        await signOut(auth);
+        return;
+      }
+    }
+
+    const sessionId = crypto.randomUUID();
+    await setDoc(docRef, { sessionId });
 
     localStorage.setItem("sessionId", sessionId);
-    localStorage.setItem("uid", result.user.uid);
+    localStorage.setItem("uid", uid);
     localStorage.setItem("emailForSignIn", email);
 
     status.textContent = "✅ Logged in successfully!";
@@ -49,21 +60,27 @@ window.loginUser = async () => {
     console.error(err);
     status.textContent = "❌ Login failed. Please check your credentials.";
   }
-};
+}
 
-window.logoutUser = async () => {
+export async function logoutUser() {
   try {
+    const uid = localStorage.getItem("uid");
+    if (uid) {
+      await setDoc(doc(db, "sessions", uid), { sessionId: null });
+    }
+
     await signOut(auth);
     localStorage.removeItem("sessionId");
     localStorage.removeItem("uid");
     localStorage.removeItem("emailForSignIn");
+
     document.getElementById("main-ui").style.display = "none";
     document.getElementById("login-container").style.display = "block";
   } catch (err) {
     console.error(err);
     document.getElementById("login-status").textContent = "❌ Logout failed.";
   }
-};
+}
 
 export async function isSessionValid() {
   const uid = localStorage.getItem("uid");
