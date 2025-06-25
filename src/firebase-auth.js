@@ -1,16 +1,18 @@
 // firebase-auth.js
-import { initializeApp } from "firebase/app";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
 import {
   getAuth,
   signInWithEmailAndPassword,
-  signOut
-} from "firebase/auth";
+  signOut,
+  onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
 import {
   getFirestore,
   doc,
   setDoc,
-  getDoc
-} from "firebase/firestore";
+  getDoc,
+  updateDoc
+} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCjB5shAXVySxyEXiBfQNx3ifBHs0tGSq0",
@@ -22,84 +24,51 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
+export const auth = getAuth(app);
 const db = getFirestore(app);
 
-export async function loginUser() {
-  const email = document.getElementById("emailInput").value;
-  const password = document.getElementById("passwordInput").value;
+export async function loginUser(email, password) {
   const status = document.getElementById("login-status");
-
   try {
     const result = await signInWithEmailAndPassword(auth, email, password);
-    const uid = result.user.uid;
-
-    const docRef = doc(db, "sessions", uid);
-    const docSnap = await getDoc(docRef);
-
-    if (docSnap.exists()) {
-      const existingSessionId = docSnap.data().sessionId;
-      if (existingSessionId) {
-        status.textContent = "❌ This account is already logged in elsewhere.";
-        await signOut(auth);
-        return;
-      }
-    }
-
     const sessionId = crypto.randomUUID();
-    await setDoc(docRef, { sessionId });
-
+    await setDoc(doc(db, "sessions", email), { sessionId });
     localStorage.setItem("sessionId", sessionId);
-    localStorage.setItem("uid", uid);
-    localStorage.setItem("emailForSignIn", email);
-
+    localStorage.setItem("userEmail", email);
     status.textContent = "✅ Logged in successfully!";
     document.getElementById("login-container").style.display = "none";
     document.getElementById("main-ui").style.display = "block";
   } catch (err) {
     console.error(err);
-    status.textContent = "❌ Login failed. Please check your credentials.";
+    status.textContent = "❌ Login failed.";
   }
 }
 
 export async function logoutUser() {
   try {
-    const uid = localStorage.getItem("uid");
-    if (uid) {
-      await setDoc(doc(db, "sessions", uid), { sessionId: null });
+    const email = localStorage.getItem("userEmail");
+    if (email) {
+      await updateDoc(doc(db, "sessions", email), { sessionId: "" });
     }
-
+    localStorage.clear();
     await signOut(auth);
-    localStorage.removeItem("sessionId");
-    localStorage.removeItem("uid");
-    localStorage.removeItem("emailForSignIn");
-
     document.getElementById("main-ui").style.display = "none";
     document.getElementById("login-container").style.display = "block";
   } catch (err) {
-    console.error(err);
-    document.getElementById("login-status").textContent = "❌ Logout failed.";
+    console.error("Logout failed", err);
   }
 }
 
 export async function isSessionValid() {
-  const uid = localStorage.getItem("uid");
-  const sessionId = localStorage.getItem("sessionId");
-
-  if (!uid || !sessionId) return false;
-
+  const email = localStorage.getItem("userEmail");
+  const localSessionId = localStorage.getItem("sessionId");
+  if (!email || !localSessionId) return false;
   try {
-    const docRef = doc(db, "sessions", uid);
+    const docRef = doc(db, "sessions", email);
     const docSnap = await getDoc(docRef);
-
-    if (docSnap.exists()) {
-      const storedSessionId = docSnap.data().sessionId;
-      return storedSessionId === sessionId;
-    } else {
-      return false;
-    }
+    return docSnap.exists() && docSnap.data().sessionId === localSessionId;
   } catch (err) {
-    console.error("Error checking session:", err);
+    console.error("Session check error", err);
     return false;
   }
 }
