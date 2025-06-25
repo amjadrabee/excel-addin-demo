@@ -26,7 +26,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-window.loginUser = async function(email, password) {
+export async function loginUser(email, password) {
   const status = document.getElementById("login-status");
   try {
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
@@ -48,9 +48,9 @@ window.loginUser = async function(email, password) {
     console.error(err);
     status.textContent = "❌ Login failed. Please check your credentials.";
   }
-};
+}
 
-window.logoutUser = async function() {
+export async function logoutUser() {
   const uid = localStorage.getItem("uid");
   if (uid) await deleteDoc(doc(db, "sessions", uid));
 
@@ -60,9 +60,9 @@ window.logoutUser = async function() {
   await signOut(auth);
   document.getElementById("login-container").style.display = "block";
   document.getElementById("main-ui").style.display = "none";
-};
+}
 
-window.isSessionValid = async function() {
+export async function isSessionValid() {
   const uid = localStorage.getItem("uid");
   const sessionId = localStorage.getItem("sessionId");
   if (!uid || !sessionId) return false;
@@ -75,4 +75,4 @@ window.isSessionValid = async function() {
     console.error("Session check failed:", err);
     return false;
   }
-};
+}
