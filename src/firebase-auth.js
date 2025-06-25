@@ -2,16 +2,13 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebas
 import {
   getAuth,
   signInWithEmailAndPassword,
-  onAuthStateChanged,
   signOut
 } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+
 import {
   getFirestore,
   doc,
-  setDoc,
-  getDoc,
-  updateDoc,
-  deleteField
+  setDoc
 } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -27,24 +24,22 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-const sessionId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-
 window.loginUser = async () => {
   const email = document.getElementById("emailInput").value;
   const password = document.getElementById("passwordInput").value;
   const status = document.getElementById("login-status");
 
   try {
-    const userCred = await signInWithEmailAndPassword(auth, email, password);
-    const user = userCred.user;
+    const result = await signInWithEmailAndPassword(auth, email, password);
+    const sessionId = crypto.randomUUID();
 
-    // Save session to Firestore
-    await setDoc(doc(db, "sessions", user.uid), {
-      activeSession: sessionId,
-      timestamp: Date.now()
+    await setDoc(doc(db, "sessions", result.user.uid), {
+      sessionId: sessionId
     });
 
     localStorage.setItem("sessionId", sessionId);
+    localStorage.setItem("uid", result.user.uid);
+    localStorage.setItem("emailForSignIn", email);
 
     status.textContent = "✅ Logged in successfully!";
     document.getElementById("login-container").style.display = "none";
@@ -55,35 +50,16 @@ window.loginUser = async () => {
   }
 };
 
-// ✅ Validate session on every page load
-onAuthStateChanged(auth, async (user) => {
-  if (user) {
-    const sessionRef = doc(db, "sessions", user.uid);
-    const sessionSnap = await getDoc(sessionRef);
-
-    const currentSessionId = localStorage.getItem("sessionId");
-
-    if (sessionSnap.exists() && sessionSnap.data().activeSession !== currentSessionId) {
-      // Another session is active
-      alert("⚠️ Your account was logged in from another device.");
-      await signOut(auth);
-      localStorage.removeItem("sessionId");
-      location.reload();
-    } else {
-      document.getElementById("login-container").style.display = "none";
-      document.getElementById("main-ui").style.display = "block";
-    }
-  }
-});
-
 window.logoutUser = async () => {
-  const user = auth.currentUser;
-  if (user) {
-    await updateDoc(doc(db, "sessions", user.uid), {
-      activeSession: deleteField()
-    });
+  try {
+    await signOut(auth);
+    localStorage.removeItem("sessionId");
+    localStorage.removeItem("uid");
+    localStorage.removeItem("emailForSignIn");
+    document.getElementById("main-ui").style.display = "none";
+    document.getElementById("login-container").style.display = "block";
+  } catch (err) {
+    console.error(err);
+    document.getElementById("login-status").textContent = "❌ Logout failed.";
   }
-  await signOut(auth);
-  localStorage.removeItem("sessionId");
-  location.reload();
 };
