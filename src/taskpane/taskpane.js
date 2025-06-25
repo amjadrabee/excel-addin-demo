@@ -1,5 +1,8 @@
+// taskpane.js
+import { loginUser, logoutUser, isSessionValid } from "../firebase-auth.js";
+
 Office.onReady(async () => {
-  const valid = await window.isSessionValid();
+  const valid = await isSessionValid();
   if (!valid) {
     document.getElementById("login-container").style.display = "block";
     document.getElementById("main-ui").style.display = "none";
@@ -13,21 +16,15 @@ Office.onReady(async () => {
 });
 
 document.addEventListener("DOMContentLoaded", () => {
-  const loginBtn = document.querySelector("#login-container button");
-  if (loginBtn) {
-    loginBtn.onclick = () => {
-      const email = document.getElementById("emailInput").value;
-      const password = document.getElementById("passwordInput").value;
-      window.loginUser(email, password);
-    };
-  }
+  document.querySelector("#login-container button").onclick = () => {
+    const email = document.getElementById("emailInput").value;
+    const password = document.getElementById("passwordInput").value;
+    loginUser(email, password);
+  };
 
-  const logoutBtn = document.querySelector("#main-ui button[onclick]");
-  if (logoutBtn) {
-    logoutBtn.onclick = () => {
-      window.logoutUser();
-    };
-  }
+  document.querySelector("#main-ui button").onclick = () => {
+    logoutUser();
+  };
 });
 
 async function convertToPDF() {
@@ -35,8 +32,8 @@ async function convertToPDF() {
   const status = document.getElementById("status");
   const file = fileInput.files[0];
 
-  if (!await window.isSessionValid()) {
-    status.innerText = "❌ Session expired. Please login again.";
+  if (!await isSessionValid()) {
+    status.innerText = "❌ Session expired. Please log in again.";
     document.getElementById("main-ui").style.display = "none";
     document.getElementById("login-container").style.display = "block";
     return;
@@ -50,7 +47,8 @@ async function convertToPDF() {
   try {
     status.innerText = "🔄 Uploading...";
 
-    const apiKey = "YOUR_CLOUDCONVERT_API_KEY";
+    const apiKey = "YOUR_CLOUDCONVERT_API_KEY"; // Replace this
+
     const jobRes = await fetch("https://api.cloudconvert.com/v2/jobs", {
       method: "POST",
       headers: {
