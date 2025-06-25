@@ -12,14 +12,20 @@ Office.onReady(async () => {
   document.getElementById("convertBtn").onclick = convertToPDF;
 });
 
-// 🔧 Attach login button manually since we're not using modules
 document.addEventListener("DOMContentLoaded", () => {
-  const loginBtn = document.querySelector("button[onclick='loginUser()']");
+  const loginBtn = document.querySelector("#login-container button");
   if (loginBtn) {
     loginBtn.onclick = () => {
       const email = document.getElementById("emailInput").value;
       const password = document.getElementById("passwordInput").value;
       window.loginUser(email, password);
+    };
+  }
+
+  const logoutBtn = document.querySelector("#main-ui button[onclick]");
+  if (logoutBtn) {
+    logoutBtn.onclick = () => {
+      window.logoutUser();
     };
   }
 });
