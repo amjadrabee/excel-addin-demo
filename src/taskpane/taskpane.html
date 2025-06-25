@@ -6,32 +6,32 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Excel Add-in Login</title>
 
-  <!-- Office.js -->
   <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
-  <link rel="stylesheet" href="https://res-1.cdn.office.net/files/fabric-cdn-prod_20230815.002/office-ui-fabric-core/11.1.0/css/fabric.min.css" />
+
+  <link rel="stylesheet"
+        href="https://res-1.cdn.office.net/files/fabric-cdn-prod_20230815.002/office-ui-fabric-core/11.1.0/css/fabric.min.css" />
   <link href="taskpane.css" rel="stylesheet" />
 </head>
 <body>
   <div id="login-container">
-    <h3>Sign in with Email & Password git5</h3>
+    <h3>Sign in with Email & Password git3</h3>
     <input type="email" id="emailInput" placeholder="Email" /><br><br>
     <input type="password" id="passwordInput" placeholder="Password" /><br><br>
-    <button onclick="window.loginUser()">Login</button>
+    <button>Login</button>
     <p id="login-status"></p>
   </div>
 
   <div id="main-ui" style="display: none;">
     <div style="display: flex; justify-content: space-between; align-items: center;">
       <h3>Convert Word to PDF</h3>
-      <button onclick="window.logoutUser()" style="margin-left: auto;">Logout</button>
+      <button style="margin-left: auto;">Logout</button>
     </div>
     <input type="file" id="uploadDocx" accept=".docx" />
     <button id="convertBtn">Convert to PDF</button>
     <div id="status"></div>
   </div>
 
-  <!-- Firebase functions must be defined BEFORE they are used -->
-  <script src="../firebase-auth.js"></script>
-  <script src="../../dist/taskpane.js"></script>
+  <script type="module" src="../firebase-auth.js"></script>
+  <script type="module" src="taskpane.js"></script>
 </body>
 </html>
