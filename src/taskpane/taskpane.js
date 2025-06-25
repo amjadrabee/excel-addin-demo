@@ -9,22 +9,6 @@ Office.onReady(() => {
   if (convertBtn) convertBtn.onclick = convertToPDF;
 });
 
-async function checkSessionMatch() {
-  const sessionId = localStorage.getItem("sessionId");
-  const email = localStorage.getItem("emailForSignIn");
-
-  if (!email || !sessionId) return false;
-
-  try {
-    const res = await fetch(`https://excel-addin-auth-default-rtdb.firebaseio.com/sessions/${btoa(email)}.json`);
-    const data = await res.json();
-    return data && data.sessionId === sessionId;
-  } catch (err) {
-    console.error("Failed to check session:", err);
-    return false;
-  }
-}
-
 async function convertToPDF() {
   const fileInput = document.getElementById("uploadDocx");
   const status = document.getElementById("status");
@@ -35,18 +19,32 @@ async function convertToPDF() {
     return;
   }
 
-  const sessionValid = await checkSessionMatch();
-  if (!sessionValid) {
-    status.innerText = "⛔ Invalid session. Please log in again.";
-    document.getElementById("login-container").style.display = "block";
-    document.getElementById("main-ui").style.display = "none";
+  const sessionId = localStorage.getItem("sessionId");
+  const uid = localStorage.getItem("uid");
+  if (!sessionId || !uid) {
+    status.innerText = "❌ Not authenticated.";
+    return;
+  }
+
+  try {
+    const res = await fetch(`https://firestore.googleapis.com/v1/projects/excel-addin-auth/databases/(default)/documents/sessions/${uid}`);
+    const data = await res.json();
+    const firestoreSessionId = data.fields?.sessionId?.stringValue;
+
+    if (firestoreSessionId !== sessionId) {
+      status.innerText = "❌ Session mismatch. Please log in again.";
+      return;
+    }
+  } catch (err) {
+    console.error("Session check failed:", err);
+    status.innerText = "❌ Session check failed.";
     return;
   }
 
   try {
     status.innerText = "🔄 Creating conversion job...";
 
-    const apiKey = "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiIxIiwianRpIjoiZGJmZTliNWJiOTBlMTY5OGNlZTdmZmI3NzIyZTg1MjgwMzQyODU3ZTYxY2M1MmZlNDAzMGVmZjdmZGM3YjdmZmRhZmE3NjYyMGQ0ODQyNGIiLCJpYXQiOjE3NTA1OTk2MjYuMjI3MTMyLCJuYmYiOjE3NTA1OTk2MjYuMjI3MTM0LCJleHAiOjQ5MDYyNzMyMjYuMjIzNTEzLCJzdWIiOiI3MjIzNTM3NCIsInNjb3BlcyI6WyJ0YXNrLnJlYWQiLCJ0YXNrLndyaXRlIl19.hmJsJlC28R-XMn8PvV10ZTnZD425ZUh4cBTpIsXMpFJ4FijCqgoibTKofRr7XgXHt8lkeMj9a3IJf8tfuLxx_U8OavhlxMRAG7MPBefKoaJynmp_ZxgI1GVS0W7NLp2jyo3iFnxSQa-H9qkWL8_TTfot72uGQsurnHy3LcwC-hLZfE63YMnndjSn3jFCGSCNOSELIIWosRZNkoHTegdRWL6rcKoIYcfi4Ff7EfwLL2w7-oTnSzICu-Lg-XnmoXRp_jf2AYEpEkvXnlOAKM86pBp3h3DlAcZZOsYr_WIJ8e8Ti4hmlAgwqD9yN76DZeQ65Wq9kBF2LbKiV8fh2WLERHDlA-0OKN92mo4qNvCsfThYgrRXcnNY9oMnYPHewaPwwT6PHv7DJGdLTHZUrtWc6mLLq1XpBzIMEzv1_qbrguot01lwrkkVACDZvnXaUPJ3plM04j6XlKf6qFPyoDNxR-ThbDjxpXqnCM57RDjE1E5ow3cXW2a_5jMFhCjvpMTyUkapzmXPDKF9rYTog4hw5aA6PRzIyS0yMIZB4VaxGM4S-tPwCJNdSdFSz7bssdTVnSf_h0GvlgUcp3en6qT6KfIIMGP7KAGsSZkB339Fu-7U7pJj7wosd1myL1-FXhauZI_YmL5W34SD6tLzvLbEfYfZ0pm9-lsSVXpMqgHlHLM";
+    const apiKey = "YOUR_CLOUDCONVERT_API_KEY_HERE"; // Replace with your valid API key
 
     const jobRes = await fetch("https://api.cloudconvert.com/v2/jobs", {
       method: "POST",
