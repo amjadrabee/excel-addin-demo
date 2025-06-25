@@ -1,15 +1,5 @@
-import { loginUser, logoutUser, isSessionValid } from "../firebase-auth.js";
-
-window.logoutUser = logoutUser;
-
-window.handleLogin = async () => {
-  const email = document.getElementById("emailInput").value;
-  const password = document.getElementById("passwordInput").value;
-  await loginUser(email, password);
-};
-
 Office.onReady(async () => {
-  const valid = await isSessionValid();
+  const valid = await window.isSessionValid();
   if (!valid) {
     document.getElementById("login-container").style.display = "block";
     document.getElementById("main-ui").style.display = "none";
@@ -19,32 +9,36 @@ Office.onReady(async () => {
   document.getElementById("login-container").style.display = "none";
   document.getElementById("main-ui").style.display = "block";
 
-  const convertBtn = document.getElementById("convertBtn");
-  if (convertBtn) convertBtn.onclick = convertToPDF;
+  document.getElementById("convertBtn").onclick = convertToPDF;
 });
+
+window.handleLogin = async function () {
+  const email = document.getElementById("emailInput").value;
+  const password = document.getElementById("passwordInput").value;
+  await window.loginUser(email, password);
+};
 
 async function convertToPDF() {
   const fileInput = document.getElementById("uploadDocx");
   const status = document.getElementById("status");
   const file = fileInput.files[0];
 
-  if (!await isSessionValid()) {
-    status.innerText = "❌ Your session is invalid. Please log in again.";
+  if (!await window.isSessionValid()) {
+    status.innerText = "❌ Session expired. Please login again.";
     document.getElementById("main-ui").style.display = "none";
     document.getElementById("login-container").style.display = "block";
     return;
   }
 
   if (!file) {
-    status.innerText = "❌ Please select a .docx file first.";
+    status.innerText = "❌ Select a .docx file.";
     return;
   }
 
   try {
-    status.innerText = "🔄 Creating conversion job...";
+    status.innerText = "🔄 Uploading...";
 
     const apiKey = "YOUR_CLOUDCONVERT_API_KEY";
-
     const jobRes = await fetch("https://api.cloudconvert.com/v2/jobs", {
       method: "POST",
       headers: {
@@ -68,7 +62,6 @@ async function convertToPDF() {
     const job = await jobRes.json();
     const uploadTask = Object.values(job.data.tasks).find(t => t.name === "upload");
 
-    status.innerText = "📤 Uploading DOCX file...";
     const formData = new FormData();
     for (const key in uploadTask.result.form.parameters) {
       formData.append(key, uploadTask.result.form.parameters[key]);
@@ -80,9 +73,8 @@ async function convertToPDF() {
       body: formData
     });
 
-    status.innerText = "⏳ Waiting for conversion...";
-    let exportTask, done = false;
-
+    status.innerText = "⏳ Converting...";
+    let done = false, exportTask;
     while (!done) {
       const poll = await fetch(`https://api.cloudconvert.com/v2/jobs/${job.data.id}`, {
         headers: { Authorization: `Bearer ${apiKey}` }
