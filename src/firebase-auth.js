@@ -28,16 +28,32 @@ const db = getFirestore(app);
 
 export async function loginUser(email, password) {
   const status = document.getElementById("login-status");
+
   try {
+    // Step 1: Sign in user (get UID)
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     const uid = userCredential.user.uid;
-    const sessionId = crypto.randomUUID();
 
-    await setDoc(doc(db, "sessions", uid), {
+    // Step 2: Check existing session before continuing
+    const sessionDocRef = doc(db, "sessions", uid);
+    const sessionDoc = await getDoc(sessionDocRef);
+    const existingSession = sessionDoc.exists() ? sessionDoc.data().sessionId : null;
+
+    if (existingSession) {
+      // Active session already exists
+      await signOut(auth);
+      status.textContent = "❌ This account is already in use elsewhere.";
+      return;
+    }
+
+    // Step 3: Register new session
+    const sessionId = crypto.randomUUID();
+    await setDoc(sessionDocRef, {
       sessionId,
       timestamp: Date.now()
     });
 
+    // Step 4: Save session locally and update UI
     localStorage.setItem("uid", uid);
     localStorage.setItem("sessionId", sessionId);
 
