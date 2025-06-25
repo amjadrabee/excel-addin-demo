@@ -8,7 +8,8 @@ import {
 import {
   getFirestore,
   doc,
-  setDoc
+  setDoc,
+  getDoc
 } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -63,3 +64,25 @@ window.logoutUser = async () => {
     document.getElementById("login-status").textContent = "❌ Logout failed.";
   }
 };
+
+export async function isSessionValid() {
+  const uid = localStorage.getItem("uid");
+  const sessionId = localStorage.getItem("sessionId");
+
+  if (!uid || !sessionId) return false;
+
+  try {
+    const docRef = doc(db, "sessions", uid);
+    const docSnap = await getDoc(docRef);
+
+    if (docSnap.exists()) {
+      const storedSessionId = docSnap.data().sessionId;
+      return storedSessionId === sessionId;
+    } else {
+      return false;
+    }
+  } catch (err) {
+    console.error("Error checking session:", err);
+    return false;
+  }
+}
