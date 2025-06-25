@@ -1,5 +1,12 @@
-// taskpane.js
-import { loginUser, logoutUser, isSessionValid } from "../firebase-auth";
+import { loginUser, logoutUser, isSessionValid } from "../firebase-auth.js";
+
+window.logoutUser = logoutUser;
+
+window.handleLogin = async () => {
+  const email = document.getElementById("emailInput").value;
+  const password = document.getElementById("passwordInput").value;
+  await loginUser(email, password);
+};
 
 Office.onReady(async () => {
   const valid = await isSessionValid();
@@ -8,15 +15,13 @@ Office.onReady(async () => {
     document.getElementById("main-ui").style.display = "none";
     return;
   }
+
   document.getElementById("login-container").style.display = "none";
   document.getElementById("main-ui").style.display = "block";
 
   const convertBtn = document.getElementById("convertBtn");
   if (convertBtn) convertBtn.onclick = convertToPDF;
 });
-
-window.loginUser = loginUser;
-window.logoutUser = logoutUser;
 
 async function convertToPDF() {
   const fileInput = document.getElementById("uploadDocx");
