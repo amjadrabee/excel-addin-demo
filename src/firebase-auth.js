@@ -1,48 +1,78 @@
+// firebase-auth.js
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+import {
+  getAuth,
+  signInWithEmailAndPassword,
+  signOut
+} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+import {
+  getFirestore,
+  doc,
+  setDoc,
+  getDoc,
+  deleteDoc
+} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT.firebaseapp.com",
-  projectId: "YOUR_PROJECT",
-  storageBucket: "YOUR_PROJECT.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyCjB5shAXVySxyEXiBfQNx3ifBHs0tGSq0",
+  authDomain: "excel-addin-auth.firebaseapp.com",
+  projectId: "excel-addin-auth",
+  storageBucket: "excel-addin-auth.appspot.com",
+  messagingSenderId: "1051103393339",
+  appId: "1:1051103393339:web:9f89eda79f1698b25dce1e"
 };
 
-firebase.initializeApp(firebaseConfig);
-const auth = firebase.auth();
-const db = firebase.firestore();
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
 
-window.loginUser = async function (email, password) {
+window.loginUser = async function(email, password) {
   const status = document.getElementById("login-status");
   try {
-    const userCredential = await auth.signInWithEmailAndPassword(email, password);
-    const user = userCredential.user;
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    const uid = userCredential.user.uid;
+    const sessionId = crypto.randomUUID();
 
-    const sessionId = Date.now().toString();
-    await db.collection("sessions").doc(user.uid).set({ sessionId });
+    await setDoc(doc(db, "sessions", uid), {
+      sessionId,
+      timestamp: Date.now()
+    });
+
+    localStorage.setItem("uid", uid);
     localStorage.setItem("sessionId", sessionId);
-    localStorage.setItem("userId", user.uid);
 
-    status.textContent = "✅ Logged in!";
+    status.textContent = "✅ Logged in successfully!";
     document.getElementById("login-container").style.display = "none";
     document.getElementById("main-ui").style.display = "block";
   } catch (err) {
     console.error(err);
-    status.textContent = "❌ Login failed.";
+    status.textContent = "❌ Login failed. Please check your credentials.";
   }
 };
 
-window.logoutUser = async function () {
-  localStorage.clear();
-  await auth.signOut();
+window.logoutUser = async function() {
+  const uid = localStorage.getItem("uid");
+  if (uid) await deleteDoc(doc(db, "sessions", uid));
+
+  localStorage.removeItem("uid");
+  localStorage.removeItem("sessionId");
+
+  await signOut(auth);
   document.getElementById("login-container").style.display = "block";
   document.getElementById("main-ui").style.display = "none";
 };
 
-window.isSessionValid = async function () {
-  const userId = localStorage.getItem("userId");
-  const localSession = localStorage.getItem("sessionId");
-  if (!userId || !localSession) return false;
+window.isSessionValid = async function() {
+  const uid = localStorage.getItem("uid");
+  const sessionId = localStorage.getItem("sessionId");
+  if (!uid || !sessionId) return false;
 
-  const doc = await db.collection("sessions").doc(userId).get();
-  return doc.exists && doc.data().sessionId === localSession;
+  try {
+    const sessionDoc = await getDoc(doc(db, "sessions", uid));
+    if (!sessionDoc.exists()) return false;
+    return sessionDoc.data().sessionId === sessionId;
+  } catch (err) {
+    console.error("Session check failed:", err);
+    return false;
+  }
 };
