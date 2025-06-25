@@ -6,41 +6,32 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Excel Add-in Login</title>
 
-  <!-- Office Add-in API -->
+  <!-- Office.js -->
   <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
-
-  <!-- Fluent UI -->
   <link rel="stylesheet" href="https://res-1.cdn.office.net/files/fabric-cdn-prod_20230815.002/office-ui-fabric-core/11.1.0/css/fabric.min.css" />
   <link href="taskpane.css" rel="stylesheet" />
-
-  <!-- Firebase compat version (for classic script support) -->
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
-  <!-- Login UI -->
   <div id="login-container">
-    <h3>Sign in with Email & Password git8</h3>
+    <h3>Sign in with Email & Password git5</h3>
     <input type="email" id="emailInput" placeholder="Email" /><br><br>
     <input type="password" id="passwordInput" placeholder="Password" /><br><br>
-    <button onclick="handleLogin()">Login</button>
+    <button onclick="window.loginUser()">Login</button>
     <p id="login-status"></p>
   </div>
 
-  <!-- Main App UI -->
   <div id="main-ui" style="display: none;">
     <div style="display: flex; justify-content: space-between; align-items: center;">
       <h3>Convert Word to PDF</h3>
-      <button onclick="logoutUser()" style="margin-left: auto;">Logout</button>
+      <button onclick="window.logoutUser()" style="margin-left: auto;">Logout</button>
     </div>
     <input type="file" id="uploadDocx" accept=".docx" />
     <button id="convertBtn">Convert to PDF</button>
     <div id="status"></div>
   </div>
 
-  <!-- Your Scripts (no modules) -->
-  <script src="firebase-auth.js"></script>
-  <script src="taskpane.js"></script>
+  <!-- Firebase functions must be defined BEFORE they are used -->
+  <script src="../firebase-auth.js"></script>
+  <script src="../../dist/taskpane.js"></script>
 </body>
 </html>
