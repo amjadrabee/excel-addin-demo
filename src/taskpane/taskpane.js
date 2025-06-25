@@ -12,11 +12,17 @@ Office.onReady(async () => {
   document.getElementById("convertBtn").onclick = convertToPDF;
 });
 
-window.handleLogin = async function () {
-  const email = document.getElementById("emailInput").value;
-  const password = document.getElementById("passwordInput").value;
-  await window.loginUser(email, password);
-};
+// 🔧 Attach login button manually since we're not using modules
+document.addEventListener("DOMContentLoaded", () => {
+  const loginBtn = document.querySelector("button[onclick='loginUser()']");
+  if (loginBtn) {
+    loginBtn.onclick = () => {
+      const email = document.getElementById("emailInput").value;
+      const password = document.getElementById("passwordInput").value;
+      window.loginUser(email, password);
+    };
+  }
+});
 
 async function convertToPDF() {
   const fileInput = document.getElementById("uploadDocx");
