@@ -67,16 +67,16 @@ export async function loginUser(email, password) {
 }
 
 export async function logoutUser() {
-  const uid = localStorage.getItem("uid");
-  if (uid) await deleteDoc(doc(db, "sessions", uid));
+  const email = localStorage.getItem("emailForSignIn");
+  const message = `Logout request for user ${email}`;
 
-  localStorage.removeItem("uid");
-  localStorage.removeItem("sessionId");
+  const mailtoLink = `mailto:aecoresolutions@gmail.com?subject=Logout Request&body=${encodeURIComponent(message)}`;
+  window.open(mailtoLink, "_blank");
 
-  await signOut(auth);
-  document.getElementById("login-container").style.display = "block";
-  document.getElementById("main-ui").style.display = "none";
+  // Optional: alert the user
+  // alert("Logout request sent to admin. Access will be revoked by admin.");
 }
+
 
 export async function isSessionValid() {
   const uid = localStorage.getItem("uid");
