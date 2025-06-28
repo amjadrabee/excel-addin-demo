@@ -35,8 +35,7 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 });
 
-// 🔐 Load CloudConvert API key from Firestore
-async function getCloudConvertKey() {
+async function getCloudConvertApiKey() {
   const db = getFirestore();
   const auth = getAuth();
 
@@ -75,8 +74,7 @@ async function convertToPDF() {
   try {
     status.innerText = "🔄 Uploading...";
 
-    // 🔐 Securely get API key
-    const apiKey = await getCloudConvertKey();
+    const apiKey = await getCloudConvertApiKey();
 
     const jobRes = await fetch("https://api.cloudconvert.com/v2/jobs", {
       method: "POST",
