@@ -1,26 +1,31 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-    import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+import {
+  getFirestore,
+  doc,
+  getDoc
+} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
-    const firebaseConfig = {
-      apiKey: "AIzaSyCjB5shAXVySxyEXiBfQNx3ifBHs0tGSq0",
-      authDomain: "excel-addin-auth.firebaseapp.com",
-      projectId: "excel-addin-auth"
-    };
+async function loadFirebaseConfig() {
+  const tempApp = initializeApp({ projectId: "excel-addin-auth" }, "tempApp");
+  const db = getFirestore(tempApp);
+  const configRef = doc(db, "config", "firebase");
+  const configSnap = await getDoc(configRef);
 
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
+  if (!configSnap.exists()) throw new Error("Missing firebase config in Firestore");
+  const config = configSnap.data();
 
-    try {
-      const configRef = doc(db, "config", "urls");
-      const configSnap = await getDoc(configRef);
+  // Cleanup temp app
+  tempApp.delete?.();
 
-      if (configSnap.exists()) {
-        const url = configSnap.data().taskpane;
-        window.location.replace(url);
-      } else {
-        document.body.innerHTML = "❌ Taskpane URL not found in database.";
-      }
-    } catch (err) {
-      document.body.innerHTML = "❌ Failed to load taskpane URL.";
-      console.error(err);
-    }
+  // Init actual app
+  const app = initializeApp(config);
+  return app;
+}
+
+// Usage:
+loadFirebaseConfig().then(app => {
+  console.log("Firebase initialized:", app.name);
+  // Now you can use `getAuth(app)` or `getFirestore(app)` safely
+}).catch(err => {
+  console.error("❌ Failed to load Firebase config:", err);
+});
