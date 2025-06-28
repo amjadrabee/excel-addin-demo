@@ -1,5 +1,13 @@
-// taskpane.js
 import { loginUser, logoutUser, isSessionValid } from "../firebase-auth.js";
+import {
+  getFirestore,
+  doc,
+  getDoc
+} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+import {
+  getAuth,
+  onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
 
 Office.onReady(async () => {
   const valid = await isSessionValid();
@@ -27,6 +35,26 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 });
 
+// 🔐 Load CloudConvert API key from Firestore
+async function getCloudConvertKey() {
+  const db = getFirestore();
+  const auth = getAuth();
+
+  return new Promise((resolve, reject) => {
+    onAuthStateChanged(auth, async user => {
+      if (!user) return reject("❌ Not authenticated");
+
+      try {
+        const snap = await getDoc(doc(db, "config", "cloudconvert"));
+        if (!snap.exists()) return reject("❌ CloudConvert key not found");
+        resolve(snap.data().apiKey);
+      } catch (e) {
+        reject("❌ Error loading API key: " + e.message);
+      }
+    });
+  });
+}
+
 async function convertToPDF() {
   const fileInput = document.getElementById("uploadDocx");
   const status = document.getElementById("status");
@@ -47,7 +75,8 @@ async function convertToPDF() {
   try {
     status.innerText = "🔄 Uploading...";
 
-    const apiKey = "YOUR_CLOUDCONVERT_API_KEY"; // Replace this
+    // 🔐 Securely get API key
+    const apiKey = await getCloudConvertKey();
 
     const jobRes = await fetch("https://api.cloudconvert.com/v2/jobs", {
       method: "POST",
