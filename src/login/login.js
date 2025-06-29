@@ -1,66 +1,69 @@
-import { initializeApp, deleteApp, getApps } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+// login.js  –  loads Firebase config from Firestore, logs user in, redirects
+import {
+  initializeApp,
+  deleteApp,
+  getApps
+} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+import {
+  getFirestore,
+  doc,
+  getDoc
+} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 import { loginUser } from "../firebase-auth.js";
 
-// Step 1: Load config from Firestore
+/* ── fetch Firebase config via temp‑app ── */
 async function fetchFirebaseConfig() {
-  // Prevent duplicate app errors
-  const tempApp = initializeApp({ projectId: "excel-addin-auth" }, "tmpCfg-login");
-  const tempDb = getFirestore(tempApp);
+  // ensure any stale tmp app from previous load is gone
+  const old = getApps().find(a => a.name === "tmpCfg-login");
+  if (old) await deleteApp(old);
 
-  const snap = await getDoc(doc(tempDb, "config", "firebase"));
-  if (!snap.exists()) throw new Error("❌ Firebase config not found.");
-  const config = snap.data();
-
-  await deleteApp(tempApp);
-  return config;
+  const temp = initializeApp({ projectId: "excel-addin-auth" }, "tmpCfg-login");
+  const cfg  = await getDoc(doc(getFirestore(temp), "config", "firebase"))
+                    .then(s => { if (!s.exists()) throw new Error("Config doc missing"); return s.data(); });
+  await deleteApp(temp);
+  return cfg;
 }
 
-// Step 2: Handle login
+/* ── full login flow ── */
 async function handleLogin(email, password) {
   const status = document.getElementById("status");
-  status.textContent = "🔄 Loading Firebase config...";
-
   try {
-    const config = await fetchFirebaseConfig();
+    status.textContent = "🔄 Loading config…";
+    const cfg = await fetchFirebaseConfig();
 
-    if (getApps().length === 0) {
-      initializeApp(config);
-    }
+    if (getApps().length === 0) initializeApp(cfg);   // init main app
 
-    status.textContent = "🔐 Logging in...";
+    status.textContent = "🔐 Signing in…";
     const ok = await loginUser(email, password);
-    if (!ok) return;
+    if (!ok) return;                                  // loginUser already set message
 
-    // Store email for future use
+    // keep email for logout‑request
     localStorage.setItem("email", email);
 
-    // Redirect to actual UI
-    window.location.href = "../ui/taskpane.html";
+    // redirect to Taskpane UI (URL stored in Firestore)
+    const urlSnap = await getDoc(doc(getFirestore(), "config", "urls"));
+    if (!urlSnap.exists() || !urlSnap.data().taskpane) {
+      throw new Error("taskpane URL not found in Firestore");
+    }
+    window.location.href = urlSnap.data().taskpane;   // 🎯 go!
   } catch (err) {
-    console.error("Login error:", err);
-    status.textContent = "❌ " + (err.message || "Login failed.");
+    console.error("Login:", err);
+    status.textContent = "❌ " + err.message;
   }
 }
 
-// Step 3: Hook up the button
+/* ── wire button after DOM ready ── */
 document.addEventListener("DOMContentLoaded", () => {
-  const loginBtn = document.getElementById("loginBtn");
-  if (!loginBtn) {
-    console.error("❌ Login button not found!");
-    return;
-  }
-
-  loginBtn.onclick = () => {
-    const email = document.getElementById("emailInput").value.trim();
+  const btn = document.getElementById("loginBtn");
+  btn.addEventListener("click", () => {
+    const email    = document.getElementById("emailInput").value.trim();
     const password = document.getElementById("passwordInput").value.trim();
-    const status = document.getElementById("status");
+    const status   = document.getElementById("status");
 
     if (!email || !password) {
       status.textContent = "❌ Enter both email and password.";
       return;
     }
-
     handleLogin(email, password);
-  };
+  });
 });
