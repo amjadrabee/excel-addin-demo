@@ -1,45 +1,17 @@
-// taskpane.js
-import { loginUser, logoutUser, isSessionValid } from "../firebase-auth.js";
+import { isSessionValid, logoutRequestLocal } from "../firebase-auth.js";
 
 Office.onReady(async () => {
-  const valid = await isSessionValid();
-  if (!valid) {
-    document.getElementById("login-container").style.display = "block";
-    document.getElementById("main-ui").style.display = "none";
+  const ok = await isSessionValid();
+  if (!ok) {
+    document.body.innerHTML = `<h2>🔒 Session Invalid</h2><p>Please reload the add-in and log in again.</p>`;
     return;
   }
 
-  document.getElementById("login-container").style.display = "none";
+  // Show UI
   document.getElementById("main-ui").style.display = "block";
 
   document.getElementById("convertBtn").onclick = convertToPDF;
-});
-
-document.addEventListener("DOMContentLoaded", () => {
-  document.querySelector("#login-container button").onclick = () => {
-    const email = document.getElementById("emailInput").value;
-    const password = document.getElementById("passwordInput").value;
-    loginUser(email, password);
-  };
-
-  document.getElementById("requestLogoutBtn").addEventListener("click", async () => {
-    try {
-      const user = Office.context.mailbox?.userProfile?.emailAddress || "Unknown User";
-      await fetch("https://your-logout-email-service.com/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          to: "support@yourcompany.com",
-          subject: "Logout Request",
-          message: `${user} has requested to log out from the Excel Add-in.`
-        })
-      });
-      alert("📩 Logout request sent.");
-    } catch (err) {
-      console.error("Logout email error:", err);
-      alert("❌ Failed to send logout request.");
-    }
-  });
+  document.getElementById("requestLogoutBtn").onclick = requestLogout;
 });
 
 async function convertToPDF() {
@@ -54,12 +26,12 @@ async function convertToPDF() {
 
   try {
     status.innerText = "🔄 Fetching API key...";
+
     const { getAuth } = await import("https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js");
     const { getFirestore, doc, getDoc } = await import("https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js");
 
     const auth = getAuth();
     const db = getFirestore();
-
     const user = auth.currentUser;
     if (!user) throw new Error("❌ Not logged in.");
 
@@ -104,7 +76,9 @@ async function convertToPDF() {
     });
 
     status.innerText = "⏳ Converting...";
-    let done = false, exportTask;
+
+    let done = false;
+    let exportTask;
     while (!done) {
       const poll = await fetch(`https://api.cloudconvert.com/v2/jobs/${job.data.id}`, {
         headers: { Authorization: `Bearer ${apiKey}` }
@@ -120,5 +94,29 @@ async function convertToPDF() {
   } catch (err) {
     console.error(err);
     status.innerText = "❌ Conversion failed. Check the console for errors.";
+  }
+}
+
+async function requestLogout() {
+  try {
+    const user = localStorage.getItem("uid") || "Unknown User";
+
+    // Call your logout email API
+    await fetch("https://your-api.example.com/send-logout-request", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        to: "support@yourcompany.com",
+        subject: "Logout Request",
+        message: `${user} has requested to log out from the Excel Add-in.`
+      })
+    });
+
+    alert("📩 Logout request sent. You will be logged out shortly.");
+    await logoutRequestLocal();
+    window.location.reload();
+  } catch (err) {
+    console.error("Logout email error:", err);
+    alert("❌ Failed to send logout request.");
   }
 }
