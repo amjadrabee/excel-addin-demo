@@ -63,7 +63,12 @@ export async function isSessionValid() {
   if (!uid || !sessionId) return false;
 
   try {
+    const auth = getAuth();
     const db   = getFirestore();
+    const currentUser = auth.currentUser;
+
+    if (!currentUser || currentUser.uid !== uid) return false;
+
     const snap = await getDoc(doc(db, "sessions", uid));
     return snap.exists() && snap.data().sessionId === sessionId;
   } catch {
