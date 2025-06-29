@@ -1,51 +1,48 @@
-import { initializeApp, deleteApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+// login.js  —  uses loginUser() above, then injects UI HTML
+import { loginUser } from "../firebase-auth.js";
 import {
-  getAuth,
-  signInWithEmailAndPassword
-} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+  initializeApp,
+  deleteApp
+} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
 import {
   getFirestore,
   doc,
   getDoc
 } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
-// ─────────────────────────────────────────────
-// 1. Load Firebase config (stored in Firestore)
-// ─────────────────────────────────────────────
-async function loadFirebaseConfig() {
-  const tempApp = initializeApp({ projectId: "excel-addin-auth" }, "temp");
-  const db = getFirestore(tempApp);
-
-  const snap = await getDoc(doc(db, "config", "firebase"));
-  if (!snap.exists()) throw new Error("❌ Firebase config not found.");
-
-  const config = snap.data();
-  await deleteApp(tempApp);
-  return config;
+// ───────────────────────────────────────────────────
+// 1. Fetch full Firebase config from Firestore
+// ───────────────────────────────────────────────────
+async function fetchFullConfig() {
+  const tmpApp = initializeApp({ projectId: "excel-addin-auth" }, "tmpCfg");
+  const db     = getFirestore(tmpApp);
+  const snap   = await getDoc(doc(db, "config", "firebase"));
+  if (!snap.exists()) throw new Error("Firebase config missing");
+  await deleteApp(tmpApp);
+  return snap.data();
 }
 
-// ─────────────────────────────────────────────
-// 2. Handle login and inject UI HTML
-// ─────────────────────────────────────────────
-async function loginUser(email, password) {
+// ───────────────────────────────────────────────────
+// 2. Perform login, then inject UI HTML
+// ───────────────────────────────────────────────────
+async function handleLogin(email, password) {
   try {
-    // 2‑a. Initialize Firebase with remote config
-    const firebaseConfig = await loadFirebaseConfig();
-    const app  = initializeApp(firebaseConfig, "main");
-    const auth = getAuth(app);
-    const db   = getFirestore(app);
+    // Full config (needed only for Firestore reads after login)
+    await fetchFullConfig();
 
-    // 2‑b. Sign in
-    await signInWithEmailAndPassword(auth, email, password);
+    const ok = await loginUser(email, password);
+    if (!ok) return;
 
-    // 2‑c. Fetch UI HTML from Firestore
+    // Load UI HTML
+    const { getFirestore, doc, getDoc } = await import(
+      "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js"
+    );
+    const db = getFirestore();
     const uiSnap = await getDoc(doc(db, "config", "ui"));
-    if (!uiSnap.exists()) throw new Error("❌ UI HTML not found in Firestore.");
+    if (!uiSnap.exists()) throw new Error("UI HTML not found.");
 
-    // 2‑d. Render the UI inside the current (empty) taskpane
-    const html = uiSnap.data().html;
     document.open();
-    document.write(html);
+    document.write(uiSnap.data().html);
     document.close();
   } catch (err) {
     console.error(err);
@@ -53,18 +50,16 @@ async function loginUser(email, password) {
   }
 }
 
-// ─────────────────────────────────────────────
-// 3. Wire up the login button
-// ─────────────────────────────────────────────
+// ───────────────────────────────────────────────────
+// 3. Wire the login form
+// ───────────────────────────────────────────────────
 document.getElementById("loginBtn").onclick = () => {
   const email    = document.getElementById("emailInput").value.trim();
   const password = document.getElementById("passwordInput").value.trim();
-
   if (!email || !password) {
-    document.getElementById("status").textContent = "❌ Enter both email and password.";
+    document.getElementById("status").textContent = "❌ Enter both fields.";
     return;
   }
-
   document.getElementById("status").textContent = "🔐 Logging in…";
-  loginUser(email, password);
+  handleLogin(email, password);
 };
