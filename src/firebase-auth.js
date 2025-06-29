@@ -64,6 +64,7 @@ export async function isSessionValid() {
     const auth = getAuth();
     const db = getFirestore();
 
+    // Ensure auth state is ready
     await new Promise(resolve => {
       const unsubscribe = auth.onAuthStateChanged(user => {
         unsubscribe();
