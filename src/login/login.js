@@ -1,21 +1,18 @@
-import { initializeApp, deleteApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+import { initializeApp, deleteApp, getApps } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
 import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 import { loginUser } from "../firebase-auth.js";
 
 // Step 1: Load config from Firestore via temporary app
 async function fetchFirebaseConfig() {
-  let tempApp;
-  try {
-    tempApp = initializeApp({ projectId: "excel-addin-auth" }, "tmpCfg");
-    const tempDb = getFirestore(tempApp);
+  const tempApp = initializeApp({ projectId: "excel-addin-auth" }, "tmpCfg");
+  const tempDb = getFirestore(tempApp);
 
-    const snap = await getDoc(doc(tempDb, "config", "firebase"));
-    if (!snap.exists()) throw new Error("❌ Firebase config not found in Firestore.");
-    
-    return snap.data();
-  } finally {
-    if (tempApp) await deleteApp(tempApp);
-  }
+  const snap = await getDoc(doc(tempDb, "config", "firebase"));
+  if (!snap.exists()) throw new Error("❌ Firebase config not found in Firestore.");
+
+  const config = snap.data();
+  await deleteApp(tempApp); // ✅ Moved after retrieving config
+  return config;
 }
 
 // Step 2: Handle login
@@ -26,8 +23,10 @@ async function handleLogin(email, password) {
   try {
     const config = await fetchFirebaseConfig();
 
-    // Initialize default app (only one per page session)
-    const app = initializeApp(config);
+    // Initialize default app only if not already initialized
+    if (getApps().length === 0) {
+      initializeApp(config);
+    }
 
     status.textContent = "🔐 Logging in...";
     const ok = await loginUser(email, password);
