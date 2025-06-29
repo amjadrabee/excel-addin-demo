@@ -49,7 +49,9 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!ok) return;
 
       statusEl.textContent = "✅ Login successful. Redirecting…";
-      window.location.href = "../ui/taskpane.html";
+      setTimeout(() => {
+        window.location.href = "../ui/taskpane.html";
+      }, 500);
     } catch (err) {
       console.error(err);
       statusEl.textContent = "❌ " + err.message;
