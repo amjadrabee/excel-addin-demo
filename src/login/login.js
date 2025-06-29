@@ -14,7 +14,6 @@ let defaultAppInitialised = false;
 async function ensureDefaultApp() {
   if (defaultAppInitialised) return;
 
-  // Temporary app just with projectId to read config
   const tmp = initializeApp({ projectId: "excel-addin-auth" }, "tmpCfg");
   const tmpDb = getFirestore(tmp);
   const cfgSnap = await getDoc(doc(tmpDb, "config", "firebase"));
@@ -22,7 +21,7 @@ async function ensureDefaultApp() {
   const fullCfg = cfgSnap.data();
 
   await deleteApp(tmp);
-  initializeApp(fullCfg); // default (unnamed) app — now getAuth()/getFirestore() work globally
+  initializeApp(fullCfg);
   defaultAppInitialised = true;
 }
 
@@ -32,9 +31,9 @@ document.addEventListener("DOMContentLoaded", () => {
   if (!btn) return console.error("loginBtn not found in DOM");
 
   btn.onclick = async () => {
-    const email    = document.getElementById("emailInput").value.trim();
+    const email = document.getElementById("emailInput").value.trim();
     const password = document.getElementById("passwordInput").value.trim();
-    const statusEl = document.getElementById("status");
+    const statusEl = document.getElementById("status") || document.getElementById("login-status");
 
     if (!email || !password) {
       statusEl.textContent = "❌ Enter both fields.";
@@ -47,7 +46,7 @@ document.addEventListener("DOMContentLoaded", () => {
       statusEl.textContent = "🔐 Logging in…";
 
       const ok = await loginUser(email, password);
-      if (!ok) return; // error message already shown by loginUser
+      if (!ok) return;
 
       statusEl.textContent = "✅ Login successful. Redirecting…";
       window.location.href = "../ui/taskpane.html";
