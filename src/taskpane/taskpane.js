@@ -1,61 +1,64 @@
-import { initializeApp, deleteApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
-import { getAuth } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+import {
+  initializeApp,
+  deleteApp,
+  getApps
+} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+
+import {
+  getFirestore,
+  doc,
+  getDoc
+} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+
+import {
+  getAuth,
+  onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+
 import { isSessionValid, logoutRequestLocal } from "../firebase-auth.js";
-import { convertToPDF, handleLogoutRequest } from "./handlers.js";
+import { setupHandlers } from "./handlers.js";
 
 let defaultAppInitialized = false;
 
-async function ensureFirebaseInitialized() {
-  if (defaultAppInitialized) return;
+async function ensureDefaultApp() {
+  if (defaultAppInitialized || getApps().length > 0) return;
 
   const tempApp = initializeApp({ projectId: "excel-addin-auth" }, "tempTaskpane");
   const tempDb = getFirestore(tempApp);
 
   const snap = await getDoc(doc(tempDb, "config", "firebase"));
   if (!snap.exists()) throw new Error("❌ Firebase config not found.");
+  const fullConfig = snap.data();
 
-  const config = snap.data();
   await deleteApp(tempApp);
-
-  initializeApp(config);
+  initializeApp(fullConfig);
   defaultAppInitialized = true;
 }
 
 Office.onReady(async () => {
   const statusBox = document.getElementById("app");
-
   try {
-    await ensureFirebaseInitialized();
+    await ensureDefaultApp();
 
-    const valid = await isSessionValid();
-    if (!valid) {
-      statusBox.innerHTML = `
-        <div style="color:red;font-weight:bold">
-          🔒 Session expired – reload Add‑in and log in again.
-        </div>`;
-      return;
-    }
+    const auth = getAuth();
+    const validSession = await isSessionValid();
 
-    // Load UI HTML from Firestore
-    const db = getFirestore();
-    const uiSnap = await getDoc(doc(db, "config", "ui"));
-    if (!uiSnap.exists()) throw new Error("❌ UI HTML not found in Firestore.");
+    onAuthStateChanged(auth, async (user) => {
+      if (!user || !validSession) {
+        statusBox.innerHTML = `<div style="color:red; font-weight: bold;">🔒 Session expired – reload Add‑in.</div>`;
+        return;
+      }
 
-    statusBox.innerHTML = uiSnap.data().html;
+      // Load UI from Firestore
+      const db = getFirestore();
+      const uiSnap = await getDoc(doc(db, "config", "ui"));
+      if (!uiSnap.exists()) throw new Error("❌ UI HTML not found in Firestore.");
 
-    // Ensure we store the user email for logout request
-    const user = getAuth().currentUser;
-    if (user && user.email) {
-      localStorage.setItem("email", user.email);
-    }
-
-    // Hook up buttons
-    document.getElementById("convertBtn").onclick = convertToPDF;
-    document.getElementById("requestLogoutBtn").onclick = handleLogoutRequest;
-
+      statusBox.innerHTML = uiSnap.data().html;
+      setupHandlers();
+    });
   } catch (err) {
-    console.error("Taskpane error:", err);
-    statusBox.innerHTML = `<pre style="color:red">${err.message}</pre>`;
+    console.error(err);
+    statusBox.innerHTML = `<pre style="color: red;">${err.message}</pre>`;
   }
 });
