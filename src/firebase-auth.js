@@ -65,8 +65,16 @@ export async function isSessionValid() {
   try {
     const auth = getAuth();
     const db   = getFirestore();
-    const currentUser = auth.currentUser;
 
+    // Wait for auth state to initialize
+    await new Promise(resolve => {
+      const unsubscribe = auth.onAuthStateChanged(user => {
+        unsubscribe();
+        resolve();
+      });
+    });
+
+    const currentUser = auth.currentUser;
     if (!currentUser || currentUser.uid !== uid) return false;
 
     const snap = await getDoc(doc(db, "sessions", uid));
