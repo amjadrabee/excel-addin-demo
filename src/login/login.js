@@ -2,48 +2,42 @@ import { initializeApp, deleteApp, getApps } from "https://www.gstatic.com/fireb
 import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 import { loginUser } from "../firebase-auth.js";
 
-/* ── fetch full Firebase config (via temp app) ── */
+// Load config from Firestore
 async function fetchFirebaseConfig() {
-  const tmp = initializeApp({ projectId: "excel-addin-auth" }, "tmpCfg");
-  const cfg = await getDoc(doc(getFirestore(tmp), "config", "firebase"))
-                    .then(s => { if (!s.exists()) throw new Error("Config missing"); return s.data(); });
-  await deleteApp(tmp);
-  return cfg;
+  const tempApp = initializeApp({ projectId: "excel-addin-auth" }, "tmpCfg");
+  const tempDb = getFirestore(tempApp);
+  const snap = await getDoc(doc(tempDb, "config", "firebase"));
+  if (!snap.exists()) throw new Error("❌ Firebase config not found.");
+  const config = snap.data();
+  await deleteApp(tempApp);
+  return config;
 }
 
-/* ── fetch redirect URL from Firestore ── */
-async function fetchTaskpaneUrl() {
-  const snap = await getDoc(doc(getFirestore(), "config", "urls"));
-  if (!snap.exists() || !snap.data().taskpane) throw new Error("Taskpane URL missing in Firestore");
-  return snap.data().taskpane;
-}
-
-/* ── main login handler ── */
 async function handleLogin(email, password) {
   const status = document.getElementById("status");
+  status.textContent = "🔄 Preparing...";
   try {
-    status.textContent = "🔄 Loading config…";
-    const cfg = await fetchFirebaseConfig();
-
-    if (getApps().length === 0) initializeApp(cfg);   // set default app
-
-    status.textContent = "🔐 Signing in…";
-    if (!(await loginUser(email, password))) return;
-
-    const redirectUrl = await fetchTaskpaneUrl();
-    window.location.href = redirectUrl;               // 🎯 go to taskpane
-  } catch (e) {
-    console.error(e);
-    status.textContent = "❌ " + e.message;
+    const config = await fetchFirebaseConfig();
+    if (getApps().length === 0) {
+      initializeApp(config);
+    }
+    status.textContent = "🔐 Logging in...";
+    const ok = await loginUser(email, password);
+    if (!ok) return;
+    localStorage.setItem("email", email);
+    window.location.href = "../ui/taskpane.html";
+  } catch (err) {
+    console.error("Login error:", err);
+    status.textContent = "❌ " + (err.message || "Login failed.");
   }
 }
 
-/* ── button click ── */
 document.getElementById("loginBtn").onclick = () => {
-  const email    = document.getElementById("emailInput").value.trim();
+  const email = document.getElementById("emailInput").value.trim();
   const password = document.getElementById("passwordInput").value.trim();
+  const status = document.getElementById("status");
   if (!email || !password) {
-    document.getElementById("status").textContent = "❌ Enter both fields.";
+    status.textContent = "❌ Enter both fields.";
     return;
   }
   handleLogin(email, password);
