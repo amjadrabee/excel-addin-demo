@@ -3,58 +3,51 @@ import {
   initializeApp,
   deleteApp
 } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+
 import {
   getFirestore,
   doc,
   getDoc
 } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
-// Fetch full Firebase config from Firestore and init default app once.
-let defaultAppInitialised = false;
-async function ensureDefaultApp() {
-  if (defaultAppInitialised) return;
+// ───── Load full Firebase config from Firestore ─────
+async function fetchFullConfig() {
+  const tmpApp = initializeApp({ projectId: "excel-addin-auth" }, "tmpCfg");
+  const db = getFirestore(tmpApp);
 
-  const tmp = initializeApp({ projectId: "excel-addin-auth" }, "tmpCfg");
-  const tmpDb = getFirestore(tmp);
-  const cfgSnap = await getDoc(doc(tmpDb, "config", "firebase"));
-  if (!cfgSnap.exists()) throw new Error("❌ Firebase config missing in Firestore");
-  const fullCfg = cfgSnap.data();
+  const snap = await getDoc(doc(db, "config", "firebase"));
+  if (!snap.exists()) throw new Error("❌ Firebase config missing.");
 
-  await deleteApp(tmp);
-  initializeApp(fullCfg);
-  defaultAppInitialised = true;
+  await deleteApp(tmpApp);
+  return snap.data();
 }
 
-// Handle login button click (DOM ready)
-document.addEventListener("DOMContentLoaded", () => {
-  const btn = document.getElementById("loginBtn");
-  if (!btn) return console.error("loginBtn not found in DOM");
+// ───── Login then redirect to taskpane.html ─────
+async function handleLogin(email, password) {
+  try {
+    document.getElementById("status").textContent = "🔐 Logging in…";
 
-  btn.onclick = async () => {
-    const email = document.getElementById("emailInput").value.trim();
-    const password = document.getElementById("passwordInput").value.trim();
-    const statusEl = document.getElementById("status") || document.getElementById("login-status");
+    await fetchFullConfig();  // ensures Firebase is initialized
+    const ok = await loginUser(email, password);
 
-    if (!email || !password) {
-      statusEl.textContent = "❌ Enter both fields.";
-      return;
+    if (ok) {
+      window.location.href = "/src/ui/taskpane.html"; // 🎯 redirect after login
     }
+  } catch (err) {
+    console.error(err);
+    document.getElementById("status").textContent = "❌ " + err.message;
+  }
+}
 
-    statusEl.textContent = "🔐 Initialising Firebase…";
-    try {
-      await ensureDefaultApp();
-      statusEl.textContent = "🔐 Logging in…";
+// ───── Login Button Event ─────
+document.getElementById("loginBtn").onclick = () => {
+  const email = document.getElementById("emailInput").value.trim();
+  const password = document.getElementById("passwordInput").value.trim();
 
-      const ok = await loginUser(email, password);
-      if (!ok) return;
+  if (!email || !password) {
+    document.getElementById("status").textContent = "❌ Enter both fields.";
+    return;
+  }
 
-      statusEl.textContent = "✅ Login successful. Redirecting…";
-      setTimeout(() => {
-        window.location.href = "../ui/taskpane.html";
-      }, 500);
-    } catch (err) {
-      console.error(err);
-      statusEl.textContent = "❌ " + err.message;
-    }
-  };
-});
+  handleLogin(email, password);
+};
