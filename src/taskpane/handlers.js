@@ -79,7 +79,7 @@ export async function handleLogoutRequest() {
   const email = (await getCurrentUserEmail()) || "unknown@example.com";
 
   const subject = encodeURIComponent("Logout Request");
-  const body = encodeURIComponent(`User ${email} (UID: ${uid}) has requested to log out from the Excel Add-in.`);
+  const body = encodeURIComponent(`User ${email} ( has requested to log out from the Excel Add-in.`);
   const mailto = `mailto:aecoresolutions@gmail.com?subject=${subject}&body=${body}`;
 
   window.location.href = mailto;
