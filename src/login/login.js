@@ -7,15 +7,29 @@ async function fetchFirebaseConfig() {
   const tempApp = initializeApp({ projectId: "excel-addin-auth" }, "tmpCfg");
   const tempDb = getFirestore(tempApp);
 
-  const snap = await getDoc(doc(tempDb, "config", "firebase"));
-  if (!snap.exists()) throw new Error("❌ Firebase config not found in Firestore.");
+  const configSnap = await getDoc(doc(tempDb, "config", "firebase"));
+  if (!configSnap.exists()) throw new Error("❌ Firebase config not found in Firestore.");
+  const config = configSnap.data();
 
-  const config = snap.data();
-  await deleteApp(tempApp); // ✅ Moved after retrieving config
+  await deleteApp(tempApp); // ✅ Cleanup after config fetch
   return config;
 }
 
-// Step 2: Handle login
+// Step 2: Load URLs from Firestore
+async function fetchRedirectUrl(config) {
+  const tempApp = initializeApp(config, "urlApp");
+  const db = getFirestore(tempApp);
+
+  const urlSnap = await getDoc(doc(db, "config", "urls"));
+  if (!urlSnap.exists()) throw new Error("❌ URLs config not found.");
+  const taskpaneUrl = urlSnap.data().taskpane;
+  if (!taskpaneUrl) throw new Error("❌ 'taskpane' URL missing in Firestore.");
+
+  await deleteApp(tempApp); // ✅ Clean up
+  return taskpaneUrl;
+}
+
+// Step 3: Handle login and redirect
 async function handleLogin(email, password) {
   const status = document.getElementById("status");
   status.textContent = "🔄 Preparing...";
@@ -23,7 +37,6 @@ async function handleLogin(email, password) {
   try {
     const config = await fetchFirebaseConfig();
 
-    // Initialize default app only if not already initialized
     if (getApps().length === 0) {
       initializeApp(config);
     }
@@ -32,18 +45,19 @@ async function handleLogin(email, password) {
     const ok = await loginUser(email, password);
     if (!ok) return;
 
-    // Store email in localStorage
+    // Store email
     localStorage.setItem("email", email);
 
-    // Redirect to actual UI
-    window.location.href = "../ui/taskpane.html";
+    // Redirect to taskpane URL from Firestore
+    const taskpaneUrl = await fetchRedirectUrl(config);
+    window.location.href = taskpaneUrl;
   } catch (err) {
     console.error("Login error:", err);
     status.textContent = "❌ " + (err.message || "Login failed.");
   }
 }
 
-// Step 3: Hook login button
+// Step 4: Hook login button
 document.getElementById("loginBtn").onclick = () => {
   const email = document.getElementById("emailInput").value.trim();
   const password = document.getElementById("passwordInput").value.trim();
