@@ -3,29 +3,27 @@ import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/9.
 
 async function loadTaskpaneUI() {
   try {
-    // Temporary app just to get Firebase config
-    const tempApp = initializeApp({ projectId: "excel-addin-auth" }, "tempUI");
-    const tempDb = getFirestore(tempApp);
+    /* fetch Firebase config with a temp‑app */
+    const temp = initializeApp({ projectId: "excel-addin-auth" }, "tmpUI");
+    const cfg  = await getDoc(doc(getFirestore(temp), "config", "firebase"));
+    if (!cfg.exists()) throw new Error("❌ Firebase config missing.");
+    await deleteApp(temp);
 
-    const cfgSnap = await getDoc(doc(tempDb, "config", "firebase"));
-    if (!cfgSnap.exists()) throw new Error("❌ Firebase config missing.");
-    const firebaseConfig = cfgSnap.data();
+    /* default app */
+    initializeApp(cfg.data());
+    const db = getFirestore();
 
-    await deleteApp(tempApp);
-
-    // Real default app
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-
-    // Load UI HTML from Firestore
+    /* fetch UI HTML */
     const uiSnap = await getDoc(doc(db, "config", "ui"));
-    if (!uiSnap.exists()) throw new Error("❌ UI HTML not found in Firestore.");
+    if (!uiSnap.exists()) throw new Error("❌ UI HTML not found.");
+    document.getElementById("app").innerHTML = uiSnap.data().html;
 
-    const html = uiSnap.data().html;
-    document.getElementById("app").innerHTML = html;
+    /* notify taskpane.js that HTML is in the DOM */
+    window.dispatchEvent(new Event("TaskpaneUILoaded"));
   } catch (err) {
     console.error(err);
-    document.getElementById("app").innerHTML = `<div style="color:red;">${err.message}</div>`;
+    document.getElementById("app").innerHTML =
+      `<div style="color:red;">${err.message}</div>`;
   }
 }
 
