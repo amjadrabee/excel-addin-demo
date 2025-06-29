@@ -36,7 +36,7 @@ async function handleLogin(email, password) {
     localStorage.setItem("email", email);
 
     // Redirect to actual UI
-    window.location.href = "/src/ui/taskpane.html";
+    window.location.href = "../ui/taskpane.html";
   } catch (err) {
     console.error("Login error:", err);
     status.textContent = "❌ " + (err.message || "Login failed.");
