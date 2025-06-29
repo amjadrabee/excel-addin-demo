@@ -1,86 +1,86 @@
-import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+// firebase-auth.js  –  single‑session + persistent login
 import {
   getAuth,
   signInWithEmailAndPassword,
   signOut,
+  setPersistence,
+  browserLocalPersistence,
   onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
 import {
+  getApps,
+  initializeApp
+} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+import {
   getFirestore,
   doc,
-  setDoc,
   getDoc,
-  deleteDoc
+  setDoc
 } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
-// Initialize app only once
+/* ─── Ensure some Firebase app exists (projectId‑only placeholder) ─── */
 if (getApps().length === 0) {
-  initializeApp({ projectId: "excel-addin-auth" });
+  initializeApp({ projectId: "excel-addin-auth" });  // temp; real config comes later
 }
-
 const auth = getAuth();
-const db = getFirestore();
+const db   = getFirestore();
 
-// ───── Login with single-session enforcement ─────
+/* ─── Login user, enforce single session, persist credentials ─── */
 export async function loginUser(email, password) {
-  const statusEl = document.getElementById("status") || { textContent: "" };
+  const status = document.getElementById("status") || { textContent: "" };
 
   try {
+    await setPersistence(auth, browserLocalPersistence);   // stay signed‑in
     const cred = await signInWithEmailAndPassword(auth, email, password);
-    const uid = cred.user.uid;
+    const uid  = cred.user.uid;
 
-    const sessRef = doc(db, "sessions", uid);
+    // single‑session check
+    const sessRef  = doc(db, "sessions", uid);
     const sessSnap = await getDoc(sessRef);
-    const existing = sessSnap.exists() ? sessSnap.data().sessionId : null;
-
-    if (existing) {
+    if (sessSnap.exists()) {
       await signOut(auth);
-      statusEl.textContent = "❌ Account is already active on another device.";
-      throw new Error("Active session already exists.");
+      status.textContent = "❌ Account already active elsewhere.";
+      return false;
     }
 
+    // create session
     const sessionId = crypto.randomUUID();
-    await setDoc(sessRef, {
-      sessionId,
-      timestamp: Date.now()
-    });
+    await setDoc(sessRef, { sessionId, timestamp: Date.now() });
 
+    // save locally
     localStorage.setItem("uid", uid);
     localStorage.setItem("sessionId", sessionId);
     localStorage.setItem("email", email);
 
-    statusEl.textContent = "✅ Logged in!";
+    status.textContent = "✅ Logged in!";
     return true;
   } catch (err) {
     console.error(err);
-    if (!statusEl.textContent) statusEl.textContent = "❌ Login failed.";
+    status.textContent = "❌ Login failed.";
     return false;
   }
 }
 
-// ───── Check if session is valid ─────
+/* ─── Validate stored session ─── */
 export async function isSessionValid() {
-  const uid = localStorage.getItem("uid");
+  const uid       = localStorage.getItem("uid");
   const sessionId = localStorage.getItem("sessionId");
   if (!uid || !sessionId) return false;
 
-  try {
-    const snap = await getDoc(doc(db, "sessions", uid));
-    return snap.exists() && snap.data().sessionId === sessionId;
-  } catch {
-    return false;
-  }
+  // wait for auth to settle
+  await new Promise(res => onAuthStateChanged(auth, () => res()));
+
+  const user = auth.currentUser;
+  if (!user || user.uid !== uid) return false;
+
+  const snap = await getDoc(doc(db, "sessions", uid));
+  return snap.exists() && snap.data().sessionId === sessionId;
 }
 
-// ───── Local logout (client side only) ─────
+/* ─── Client‑side logout helper ─── */
 export async function logoutRequestLocal() {
   localStorage.removeItem("uid");
   localStorage.removeItem("sessionId");
   localStorage.removeItem("email");
   await signOut(auth);
-}
-
-// ───── Export Firebase auth state listener ─────
-export function onUserChanged(callback) {
-  onAuthStateChanged(auth, callback);
 }
