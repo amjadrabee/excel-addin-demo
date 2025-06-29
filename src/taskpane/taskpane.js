@@ -1,64 +1,50 @@
-import {
-  initializeApp,
-  deleteApp,
-  getApps
-} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+import { initializeApp, deleteApp, getApps } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+import { isSessionValid } from "../firebase-auth.js";
+import { convertToPDF, handleLogoutRequest } from "./handlers.js";
 
-import {
-  getFirestore,
-  doc,
-  getDoc
-} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+async function initDefaultApp() {
+  if (getApps().length) return;                       // already initialised
+  const tmp = initializeApp({ projectId: "excel-addin-auth" }, "tmpTaskpane");
+  const cfg = await getDoc(doc(getFirestore(tmp), "config", "firebase"))
+                     .then(s => { if (!s.exists()) throw new Error("No config"); return s.data(); });
+  await deleteApp(tmp);
+  initializeApp(cfg);
+}
 
-import {
-  getAuth,
-  onAuthStateChanged
-} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
-
-import { isSessionValid, logoutRequestLocal } from "../firebase-auth.js";
-import { setupHandlers } from "./handlers.js";
-
-let defaultAppInitialized = false;
-
-async function ensureDefaultApp() {
-  if (defaultAppInitialized || getApps().length > 0) return;
-
-  const tempApp = initializeApp({ projectId: "excel-addin-auth" }, "tempTaskpane");
-  const tempDb = getFirestore(tempApp);
-
-  const snap = await getDoc(doc(tempDb, "config", "firebase"));
-  if (!snap.exists()) throw new Error("❌ Firebase config not found.");
-  const fullConfig = snap.data();
-
-  await deleteApp(tempApp);
-  initializeApp(fullConfig);
-  defaultAppInitialized = true;
+async function loadUIHtml() {
+  const snap = await getDoc(doc(getFirestore(), "config", "ui"));
+  if (!snap.exists()) throw new Error("UI HTML missing");
+  return snap.data().html;
 }
 
 Office.onReady(async () => {
-  const statusBox = document.getElementById("app");
+  const box = document.getElementById("app");
   try {
-    await ensureDefaultApp();
+    await initDefaultApp();
 
     const auth = getAuth();
-    const validSession = await isSessionValid();
+    const sessionOk = await isSessionValid();
 
-    onAuthStateChanged(auth, async (user) => {
-      if (!user || !validSession) {
-        statusBox.innerHTML = `<div style="color:red; font-weight: bold;">🔒 Session expired – reload Add‑in.</div>`;
+    onAuthStateChanged(auth, async user => {
+      if (!user || !sessionOk) {
+        box.innerHTML = `<div style="color:red;font-weight:bold">🔒 Session expired – log in again.</div>`;
         return;
       }
 
-      // Load UI from Firestore
-      const db = getFirestore();
-      const uiSnap = await getDoc(doc(db, "config", "ui"));
-      if (!uiSnap.exists()) throw new Error("❌ UI HTML not found in Firestore.");
+      /* store email (if missed) */
+      localStorage.setItem("email", user.email);
 
-      statusBox.innerHTML = uiSnap.data().html;
-      setupHandlers();
+      /* inject UI */
+      box.innerHTML = await loadUIHtml();
+
+      /* wire buttons */
+      document.getElementById("convertBtn")      ?.addEventListener("click", convertToPDF);
+      document.getElementById("requestLogoutBtn")?.addEventListener("click", handleLogoutRequest);
     });
-  } catch (err) {
-    console.error(err);
-    statusBox.innerHTML = `<pre style="color: red;">${err.message}</pre>`;
+  } catch (e) {
+    console.error(e);
+    box.innerHTML = `<pre style="color:red">${e.message}</pre>`;
   }
 });
