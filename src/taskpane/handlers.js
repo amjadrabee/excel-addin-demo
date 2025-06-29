@@ -73,30 +73,20 @@ export async function convertToPDF() {
     status.innerText = "❌ Conversion failed. Check the console.";
   }
 }
-export async function handleLogoutRequest() {
-  const email = await getCurrentUserEmail();
-  const subject = encodeURIComponent("Logout Request");
+export function logoutRequest() {
+  const email = localStorage.getItem("email") || "Unknown";
+  const subject = encodeURIComponent("Logout Request from Excel Add-in");
   const body = encodeURIComponent(`${email} has requested to log out from the Excel Add-in.`);
-  const mailto = `mailto:aecoresolutions@gmail.com?subject=${subject}&body=${body}`;
 
-  // Open mail client
-  window.location.href = mailto;
-}
+  // Try to open mail client safely
+  const mailtoLink = `mailto:support@yourcompany.com?subject=${subject}&body=${body}`;
 
-async function getCurrentUserEmail() {
-  try {
-    const { getAuth } = await import("https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js");
-    const auth = getAuth();
-
-    await new Promise(resolve => {
-      const unsubscribe = auth.onAuthStateChanged(() => {
-        unsubscribe();
-        resolve();
-      });
-    });
-
-    return auth.currentUser?.email || "Unknown user";
-  } catch {
-    return "Unknown user";
-  }
+  // Use a link click instead of window.open to bypass some Excel restrictions
+  const tempLink = document.createElement("a");
+  tempLink.href = mailtoLink;
+  tempLink.style.display = "none";
+  tempLink.setAttribute("target", "_blank");
+  document.body.appendChild(tempLink);
+  tempLink.click();
+  document.body.removeChild(tempLink);
 }
