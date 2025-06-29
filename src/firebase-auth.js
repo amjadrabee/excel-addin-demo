@@ -15,25 +15,23 @@ import {
 
 // ───── Login with single‑session guard ─────
 export async function loginUser(email, password) {
-  const statusEl = document.getElementById("login-status") || { textContent: "" };
+  const statusEl = document.getElementById("login-status") || document.getElementById("status") || { textContent: "" };
 
   try {
-    const auth = getAuth();              // default app auth (must already exist)
+    const auth = getAuth();
     const cred = await signInWithEmailAndPassword(auth, email, password);
-    const uid  = cred.user.uid;
+    const uid = cred.user.uid;
 
-    const db       = getFirestore();
-    const sessRef  = doc(db, "sessions", uid);
+    const db = getFirestore();
+    const sessRef = doc(db, "sessions", uid);
     const sessSnap = await getDoc(sessRef);
 
     if (sessSnap.exists()) {
-      // Someone already logged in somewhere else
       await signOut(auth);
       statusEl.textContent = "❌ Account is already active on another device.";
       return false;
     }
 
-    // Create new session
     const sessionId = crypto.randomUUID();
     await setDoc(sessRef, { sessionId, timestamp: Date.now() });
 
@@ -58,15 +56,14 @@ export async function logoutRequestLocal() {
 
 // ───── Validate that the stored session is still active ─────
 export async function isSessionValid() {
-  const uid       = localStorage.getItem("uid");
+  const uid = localStorage.getItem("uid");
   const sessionId = localStorage.getItem("sessionId");
   if (!uid || !sessionId) return false;
 
   try {
     const auth = getAuth();
-    const db   = getFirestore();
+    const db = getFirestore();
 
-    // Wait for auth state to initialize
     await new Promise(resolve => {
       const unsubscribe = auth.onAuthStateChanged(user => {
         unsubscribe();
