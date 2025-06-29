@@ -73,15 +73,13 @@ export async function convertToPDF() {
     status.innerText = "❌ Conversion failed. Check the console.";
   }
 }
-
 export async function handleLogoutRequest() {
-  const uid = localStorage.getItem("uid") || "Unknown UID";
-  const email = (await getCurrentUserEmail()) || "unknown@example.com";
-
+  const email = await getCurrentUserEmail();
   const subject = encodeURIComponent("Logout Request");
-  const body = encodeURIComponent(`User ${email} ( has requested to log out from the Excel Add-in.`);
-  const mailto = `mailto:aecoresolutions@gmail.com?subject=${subject}&body=${body}`;
+  const body = encodeURIComponent(`${email} has requested to log out from the Excel Add-in.`);
+  const mailto = `mailto:support@yourcompany.com?subject=${subject}&body=${body}`;
 
+  // Open mail client
   window.location.href = mailto;
 }
 
@@ -89,15 +87,44 @@ async function getCurrentUserEmail() {
   try {
     const { getAuth } = await import("https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js");
     const auth = getAuth();
+
     await new Promise(resolve => {
-      const unsub = auth.onAuthStateChanged(() => {
-        unsub();
+      const unsubscribe = auth.onAuthStateChanged(() => {
+        unsubscribe();
         resolve();
       });
     });
-    return auth.currentUser?.email || null;
+
+    return auth.currentUser?.email || "Unknown user";
   } catch {
-    return null;
+    return "Unknown user";
   }
 }
+
+// export async function handleLogoutRequest() {
+//   const uid = localStorage.getItem("uid") || "Unknown UID";
+//   const email = (await getCurrentUserEmail()) || "unknown@example.com";
+
+//   const subject = encodeURIComponent("Logout Request");
+//   const body = encodeURIComponent(`User ${email} ( has requested to log out from the Excel Add-in.`);
+//   const mailto = `mailto:aecoresolutions@gmail.com?subject=${subject}&body=${body}`;
+
+//   window.location.href = mailto;
+// }
+
+// async function getCurrentUserEmail() {
+//   try {
+//     const { getAuth } = await import("https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js");
+//     const auth = getAuth();
+//     await new Promise(resolve => {
+//       const unsub = auth.onAuthStateChanged(() => {
+//         unsub();
+//         resolve();
+//       });
+//     });
+//     return auth.currentUser?.email || null;
+//   } catch {
+//     return null;
+//   }
+// }
 
