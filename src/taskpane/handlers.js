@@ -1,23 +1,12 @@
 // handlers.js
-export async function handleLogoutRequest() {
-  try {
-    const email = localStorage.getItem("email") || "Unknown";
+document.getElementById("requestLogoutBtn").onclick = () => {
+  const email = localStorage.getItem("email") || "Unknown";
+  const subject = encodeURIComponent("Logout Request");
+  const body = encodeURIComponent(`${email} has requested to logout from the Excel Add-in.`);
 
-    // Compose email message
-    const subject = encodeURIComponent("Logout Request");
-    const body = encodeURIComponent(`${email} wants to log out from the Excel Add-in.`);
+  window.location.href = `mailto:support@yourcompany.com?subject=${subject}&body=${body}`;
+};
 
-    // Open email client
-    window.location.href = `mailto:support@yourcompany.com?subject=${subject}&body=${body}`;
-  } catch (err) {
-    console.error("Logout email error:", err);
-    // Fallback: show error in status div (avoiding window.alert)
-    const statusBox = document.getElementById("status") || document.getElementById("app");
-    if (statusBox) {
-      statusBox.innerHTML = `<span style="color: red;">❌ Failed to open email client.</span>`;
-    }
-  }
-}
 
 export async function convertToPDF() {
   const fileInput = document.getElementById("uploadDocx");
