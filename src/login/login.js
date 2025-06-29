@@ -26,20 +26,6 @@ async function ensureDefaultApp() {
   defaultAppInitialised = true;
 }
 
-// Inject UI HTML (stored in /config/ui) after successful login
-async function injectUI() {
-  const { getFirestore, doc, getDoc } = await import(
-    "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js"
-  );
-  const db = getFirestore();
-  const uiSnap = await getDoc(doc(db, "config", "ui"));
-  if (!uiSnap.exists()) throw new Error("❌ UI HTML not found in Firestore");
-
-  document.open();
-  document.write(uiSnap.data().html);
-  document.close();
-}
-
 // Handle login button click (DOM ready)
 document.addEventListener("DOMContentLoaded", () => {
   const btn = document.getElementById("loginBtn");
@@ -63,8 +49,8 @@ document.addEventListener("DOMContentLoaded", () => {
       const ok = await loginUser(email, password);
       if (!ok) return; // error message already shown by loginUser
 
-      statusEl.textContent = "✅ Login successful. Loading add‑in UI…";
-      await injectUI();
+      statusEl.textContent = "✅ Login successful. Redirecting…";
+      window.location.href = "../ui/taskpane.html";
     } catch (err) {
       console.error(err);
       statusEl.textContent = "❌ " + err.message;
