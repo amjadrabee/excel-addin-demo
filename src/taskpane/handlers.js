@@ -75,22 +75,29 @@ export async function convertToPDF() {
 }
 
 export async function handleLogoutRequest() {
-  const { logoutRequestLocal } = await import("../firebase-auth.js");
-  const user = localStorage.getItem("uid") || "Unknown";
+  const uid = localStorage.getItem("uid") || "Unknown UID";
+  const email = (await getCurrentUserEmail()) || "unknown@example.com";
+
+  const subject = encodeURIComponent("Logout Request");
+  const body = encodeURIComponent(`User ${email} (UID: ${uid}) has requested to log out from the Excel Add-in.`);
+  const mailto = `mailto:aecoresolutions@gmail.com?subject=${subject}&body=${body}`;
+
+  window.location.href = mailto;
+}
+
+async function getCurrentUserEmail() {
   try {
-    await fetch("https://your-logout-email-service.com/send", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        to: "support@yourcompany.com",
-        subject: "Logout Request",
-        message: `${user} has requested to log out from the Excel Add-in.`
-      })
+    const { getAuth } = await import("https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js");
+    const auth = getAuth();
+    await new Promise(resolve => {
+      const unsub = auth.onAuthStateChanged(() => {
+        unsub();
+        resolve();
+      });
     });
-    await logoutRequestLocal();
-    alert("📩 Logout request sent.");
-  } catch (err) {
-    console.error("Logout email error:", err);
-    alert("❌ Failed to send logout request.");
+    return auth.currentUser?.email || null;
+  } catch {
+    return null;
   }
 }
+
