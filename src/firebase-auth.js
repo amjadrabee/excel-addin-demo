@@ -1,86 +1,81 @@
-import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+/*  firebase-auth.js
+    — single‑session support (one device at a time)           */
+
 import {
   getAuth,
   signInWithEmailAndPassword,
-  signOut,
-  onAuthStateChanged
+  signOut
 } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
 import {
   getFirestore,
   doc,
-  setDoc,
   getDoc,
-  deleteDoc
+  setDoc
 } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
-// Initialize app only once
-if (getApps().length === 0) {
-  initializeApp({ projectId: "excel-addin-auth" });
+let auth, db;
+
+/*  called once from login.js after default app is initialised */
+export function initAuthAndDb(app) {
+  auth = getAuth(app);
+  db   = getFirestore(app);
 }
 
-const auth = getAuth();
-const db = getFirestore();
-
-// ───── Login with single-session enforcement ─────
+/* ────────────────────────────────────────────────
+   LOGIN  (returns true  / false)                  */
 export async function loginUser(email, password) {
-  const statusEl = document.getElementById("status") || { textContent: "" };
+  const status = document.getElementById("status") || { textContent: "" };
 
   try {
     const cred = await signInWithEmailAndPassword(auth, email, password);
-    const uid = cred.user.uid;
+    const uid  = cred.user.uid;
 
     const sessRef = doc(db, "sessions", uid);
-    const sessSnap = await getDoc(sessRef);
-    const existing = sessSnap.exists() ? sessSnap.data().sessionId : null;
+    const snap    = await getDoc(sessRef);
+    const localId = localStorage.getItem("sessionId") || "";
 
-    if (existing) {
+    /* block sign‑in from second device */
+    if (snap.exists() && snap.data().sessionId !== localId) {
+      status.textContent = "❌ Already signed‑in on another device.";
       await signOut(auth);
-      statusEl.textContent = "❌ Account is already active on another device.";
-      throw new Error("Active session already exists.");
+      return false;
     }
 
-    const sessionId = crypto.randomUUID();
-    await setDoc(sessRef, {
-      sessionId,
-      timestamp: Date.now()
-    });
+    /* create/reuse session */
+    const sessionId = localId || crypto.randomUUID();
+    await setDoc(sessRef, { sessionId, timestamp: Date.now() });
 
-    localStorage.setItem("uid", uid);
-    localStorage.setItem("sessionId", sessionId);
-    localStorage.setItem("email", email);
+    /* persist locally */
+    localStorage.setItem("uid",        uid);
+    localStorage.setItem("email",      email);
+    localStorage.setItem("sessionId",  sessionId);
 
-    statusEl.textContent = "✅ Logged in!";
+    status.textContent = "✅ Login successful";
     return true;
+
   } catch (err) {
-    console.error(err);
-    if (!statusEl.textContent) statusEl.textContent = "❌ Login failed.";
+    console.error("Login error:", err);
+    status.textContent = "❌ " + (err.code || "Login failed.");
     return false;
   }
 }
 
-// ───── Check if session is valid ─────
+/*  session check used by taskpane.js */
 export async function isSessionValid() {
   const uid = localStorage.getItem("uid");
-  const sessionId = localStorage.getItem("sessionId");
-  if (!uid || !sessionId) return false;
+  const id  = localStorage.getItem("sessionId");
+  if (!uid || !id || !db) return false;
 
   try {
-    const snap = await getDoc(doc(db, "sessions", uid));
-    return snap.exists() && snap.data().sessionId === sessionId;
+    const s = await getDoc(doc(db, "sessions", uid));
+    return s.exists() && s.data().sessionId === id;
   } catch {
     return false;
   }
 }
 
-// ───── Local logout (client side only) ─────
+/*  local cleanup after logout‑request */
 export async function logoutRequestLocal() {
-  localStorage.removeItem("uid");
-  localStorage.removeItem("sessionId");
-  localStorage.removeItem("email");
-  await signOut(auth);
-}
-
-// ───── Export Firebase auth state listener ─────
-export function onUserChanged(callback) {
-  onAuthStateChanged(auth, callback);
+  try { if (auth) await signOut(auth); } catch {}
+  ["uid","email","sessionId"].forEach(k => localStorage.removeItem(k));
 }
