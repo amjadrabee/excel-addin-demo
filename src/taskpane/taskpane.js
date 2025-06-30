@@ -6,12 +6,25 @@ Office.onReady(async () => {
     document.body.innerHTML = `<h2>🔒 Session Invalid</h2><p>Please reload the add-in and log in again.</p>`;
     return;
   }
+  const logoutBtn = document.getElementById("requestLogout");
+  if (logoutBtn) {
+    logoutBtn.onclick = requestLogout;
+    console.log("✅ Logout button connected");
+  } else {
+    console.error("❌ Logout button not found in DOM");
+  }
+});
 
-  // Show UI
-  document.getElementById("main-ui").style.display = "block";
+// Show UI
+document.getElementById("main-ui").style.display = "block";
 
-  document.getElementById("convertBtn").onclick = convertToPDF;
-  document.getElementById("requestLogout").onclick = requestLogout;
+document.getElementById("convertBtn").onclick = convertToPDF;
+
+const logoutBtn = document.getElementById("requestLogout");
+if (logoutBtn) {
+  logoutBtn.onclick = requestLogout;
+  console.log("✅ Logout button bound after UI shown");
+}
   
 });
 
