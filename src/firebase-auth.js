@@ -1,10 +1,4 @@
 import {
-  initializeApp,
-  getApps,
-  getApp
-} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-
-import {
   getAuth,
   signInWithEmailAndPassword,
   signOut
@@ -13,30 +7,22 @@ import {
 import {
   getFirestore,
   doc,
+  setDoc,
   getDoc,
-  setDoc
+  deleteDoc
 } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
-// ─────────────────────────────────────────────
-// ✅ Safe default app initialization (once only)
-// ─────────────────────────────────────────────
-function ensureFirebaseInitialized() {
-  const apps = getApps();
-  if (apps.length === 0) {
-    // Minimal fallback config (used early if full not loaded yet)
-    initializeApp({ projectId: "excel-addin-auth" });
-  }
+let auth;
+let db;
+
+export function initAuthAndDb(app) {
+  auth = getAuth(app);
+  db = getFirestore(app);
 }
 
-// ⏪ Ensure initialized now
-ensureFirebaseInitialized();
-
-const auth = getAuth();
-const db = getFirestore();
-
-// ─────────────────────────────────────────────
-// 🔐 Login user (single session enforced)
-// ─────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
+// 🔐 LOGIN USER (single session enforced)
+// ─────────────────────────────────────────────────────────────
 export async function loginUser(email, password) {
   const status = document.getElementById("status") || { textContent: "" };
 
@@ -45,27 +31,26 @@ export async function loginUser(email, password) {
     const uid = cred.user.uid;
 
     const sessRef = doc(db, "sessions", uid);
-    const sessSnap = await getDoc(sessRef);
-    const existingSession = sessSnap.exists() ? sessSnap.data().sessionId : null;
+    const snap = await getDoc(sessRef);
 
-    const localSessionId = localStorage.getItem("sessionId");
-
-    if (existingSession && existingSession !== localSessionId) {
-      await signOut(auth);
-      status.textContent = "❌ You're already signed in on another device.";
-      return false;
+    if (snap.exists()) {
+      const existing = snap.data().sessionId;
+      if (existing && existing !== localStorage.getItem("sessionId")) {
+        await signOut(auth);
+        status.textContent = "❌ You're already signed in on another device.";
+        return false;
+      }
     }
 
-    const sessionId = localSessionId || crypto.randomUUID();
-
+    const sessionId = crypto.randomUUID();
     await setDoc(sessRef, {
       sessionId,
       timestamp: Date.now()
     });
 
     localStorage.setItem("uid", uid);
-    localStorage.setItem("sessionId", sessionId);
     localStorage.setItem("email", email);
+    localStorage.setItem("sessionId", sessionId);
 
     status.textContent = "✅ Login successful";
     return true;
@@ -76,34 +61,28 @@ export async function loginUser(email, password) {
   }
 }
 
-// ─────────────────────────────────────────────
-// 🔒 Check if current session is valid
-// ─────────────────────────────────────────────
 export async function isSessionValid() {
   const uid = localStorage.getItem("uid");
   const sessionId = localStorage.getItem("sessionId");
   if (!uid || !sessionId) return false;
 
   try {
-    const sessSnap = await getDoc(doc(db, "sessions", uid));
-    return sessSnap.exists() && sessSnap.data().sessionId === sessionId;
-  } catch (err) {
-    console.error("Session check failed:", err);
+    const ref = doc(db, "sessions", uid);
+    const snap = await getDoc(ref);
+    return snap.exists() && snap.data().sessionId === sessionId;
+  } catch {
     return false;
   }
 }
 
-// ─────────────────────────────────────────────
-// 🔓 Logout locally after request logout
-// ─────────────────────────────────────────────
 export async function logoutRequestLocal() {
+  localStorage.removeItem("uid");
+  localStorage.removeItem("sessionId");
+  localStorage.removeItem("email");
+
   try {
     await signOut(auth);
   } catch (err) {
     console.warn("Sign out warning:", err.message);
   }
-
-  localStorage.removeItem("uid");
-  localStorage.removeItem("sessionId");
-  localStorage.removeItem("email");
 }
