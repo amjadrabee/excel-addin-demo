@@ -10,7 +10,7 @@ import {
   getDoc
 } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
-import { loginUser } from "../firebase-auth.js";
+import { loginUser, initAuthAndDb } from "../firebase-auth.js";
 
 async function fetchFirebaseConfig() {
   const tmpApp = initializeApp({ projectId: "excel-addin-auth" }, "tmp-login");
@@ -26,11 +26,15 @@ async function fetchFirebaseConfig() {
 
 async function handleLogin(email, password) {
   const status = document.getElementById("status");
+
   try {
     status.textContent = "🔄 Loading config…";
 
     const cfg = await fetchFirebaseConfig();
-    if (getApps().length === 0) initializeApp(cfg);
+    const app = initializeApp(cfg);
+
+    // Setup auth and db in our module
+    initAuthAndDb(app);
 
     status.textContent = "🔐 Signing in...";
     const ok = await loginUser(email, password);
@@ -48,10 +52,9 @@ async function handleLogin(email, password) {
   }
 }
 
-// No need for DOMContentLoaded since we’re loading after DOM
-const btn = document.getElementById("loginBtn");
-if (btn) {
-  btn.addEventListener("click", () => {
+document.addEventListener("DOMContentLoaded", () => {
+  const btn = document.getElementById("loginBtn");
+  btn?.addEventListener("click", () => {
     const email = document.getElementById("emailInput").value.trim();
     const password = document.getElementById("passwordInput").value.trim();
     const status = document.getElementById("status");
@@ -63,6 +66,4 @@ if (btn) {
 
     handleLogin(email, password);
   });
-} else {
-  console.error("❌ Login button not found in DOM.");
-}
+});
