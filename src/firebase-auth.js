@@ -1,90 +1,86 @@
+import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
 import {
-  initializeApp,
-  deleteApp,
-  getApps,
-  getApp
-} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+  getAuth,
+  signInWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
 import {
   getFirestore,
   doc,
-  getDoc
+  setDoc,
+  getDoc,
+  deleteDoc
 } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
-import { loginUser, initAuthAndDb } from "../firebase-auth.js";
-
-/* ─── Load full Firebase config from Firestore (via temp app) ─── */
-async function fetchFirebaseConfig() {
-  // create / reuse a named temp app
-  const tmpName = "tmp-login";
-  const oldTmp = getApps().find(a => a.name === tmpName);
-  if (oldTmp) await deleteApp(oldTmp);
-
-  const tmp = initializeApp({ projectId: "excel-addin-auth" }, tmpName);
-  const cfgSnap = await getDoc(doc(getFirestore(tmp), "config", "firebase"));
-  if (!cfgSnap.exists()) throw new Error("❌ Firebase config missing in Firestore");
-  const cfg = cfgSnap.data();
-  await deleteApp(tmp);
-  return cfg;
+// Initialize app only once
+if (getApps().length === 0) {
+  initializeApp({ projectId: "excel-addin-auth" });
 }
 
-/* ─── Main login handler ─── */
-async function handleLogin(email, password) {
-  const status = document.getElementById("status");
+const auth = getAuth();
+const db = getFirestore();
+
+// ───── Login with single-session enforcement ─────
+export async function loginUser(email, password) {
+  const statusEl = document.getElementById("status") || { textContent: "" };
 
   try {
-    status.textContent = "🔄 Loading Firebase config…";
-    const cfg = await fetchFirebaseConfig();
+    const cred = await signInWithEmailAndPassword(auth, email, password);
+    const uid = cred.user.uid;
 
-    // ⚡ Safe default‑app initialisation
-    let app;
-    if (getApps().length === 0) {
-      app = initializeApp(cfg);                   // first time
-    } else {
-      app = getApp();                             // already initialised
-      // (optional) sanity‑check: configs must match projectId
-      if (app.options.projectId !== cfg.projectId) {
-        throw new Error("❌ Firebase already initialised with a different project.");
-      }
+    const sessRef = doc(db, "sessions", uid);
+    const sessSnap = await getDoc(sessRef);
+    const existing = sessSnap.exists() ? sessSnap.data().sessionId : null;
+
+    if (existing) {
+      await signOut(auth);
+      statusEl.textContent = "❌ Account is already active on another device.";
+      throw new Error("Active session already exists.");
     }
 
-    // Attach auth/db to helper module
-    initAuthAndDb(app);
+    const sessionId = crypto.randomUUID();
+    await setDoc(sessRef, {
+      sessionId,
+      timestamp: Date.now()
+    });
 
-    status.textContent = "🔐 Signing in…";
-    const ok = await loginUser(email, password);  // single‑session enforced
-    if (!ok) return;                              // error message set inside
-
-    // Save email for logout mail
+    localStorage.setItem("uid", uid);
+    localStorage.setItem("sessionId", sessionId);
     localStorage.setItem("email", email);
 
-    // 🔗 Get taskpane URL from Firestore, then redirect
-    const urlsSnap = await getDoc(doc(getFirestore(), "config", "urls"));
-    const redirectUrl = urlsSnap.data()?.taskpane;
-    if (!redirectUrl) throw new Error("❌ 'taskpane' URL missing in Firestore.");
-    window.location.href = redirectUrl;
-
+    statusEl.textContent = "✅ Logged in!";
+    return true;
   } catch (err) {
-    console.error("Login error:", err);
-    status.textContent = "❌ " + err.message;
+    console.error(err);
+    if (!statusEl.textContent) statusEl.textContent = "❌ Login failed.";
+    return false;
   }
 }
 
-/* ─── Wire the button once DOM is ready ─── */
-document.addEventListener("DOMContentLoaded", () => {
-  const btn = document.getElementById("loginBtn");
-  if (!btn) {
-    console.error("⚠️ Login button not found in DOM");
-    return;
-  }
-  btn.addEventListener("click", () => {
-    const email    = document.getElementById("emailInput").value.trim();
-    const password = document.getElementById("passwordInput").value.trim();
-    const status   = document.getElementById("status");
+// ───── Check if session is valid ─────
+export async function isSessionValid() {
+  const uid = localStorage.getItem("uid");
+  const sessionId = localStorage.getItem("sessionId");
+  if (!uid || !sessionId) return false;
 
-    if (!email || !password) {
-      status.textContent = "❌ Enter both email and password.";
-      return;
-    }
-    handleLogin(email, password);
-  });
-});
+  try {
+    const snap = await getDoc(doc(db, "sessions", uid));
+    return snap.exists() && snap.data().sessionId === sessionId;
+  } catch {
+    return false;
+  }
+}
+
+// ───── Local logout (client side only) ─────
+export async function logoutRequestLocal() {
+  localStorage.removeItem("uid");
+  localStorage.removeItem("sessionId");
+  localStorage.removeItem("email");
+  await signOut(auth);
+}
+
+// ───── Export Firebase auth state listener ─────
+export function onUserChanged(callback) {
+  onAuthStateChanged(auth, callback);
+}
