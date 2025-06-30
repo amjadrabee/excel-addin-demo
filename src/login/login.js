@@ -1,73 +1,81 @@
-import { loginUser } from "../firebase-auth.js";
 import {
   initializeApp,
-  deleteApp
+  deleteApp,
+  getApps,
+  getApp
 } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+
 import {
   getFirestore,
   doc,
   getDoc
 } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
-// Fetch full Firebase config from Firestore and init default app once.
-let defaultAppInitialised = false;
-async function ensureDefaultApp() {
-  if (defaultAppInitialised) return;
+import { loginUser } from "../firebase-auth.js";
 
-  // Temporary app just with projectId to read config
-  const tmp = initializeApp({ projectId: "excel-addin-auth" }, "tmpCfg");
-  const tmpDb = getFirestore(tmp);
-  const cfgSnap = await getDoc(doc(tmpDb, "config", "firebase"));
-  if (!cfgSnap.exists()) throw new Error("❌ Firebase config missing in Firestore");
-  const fullCfg = cfgSnap.data();
+// 🔧 Load Firebase config from Firestore (temporary app)
+async function fetchFirebaseConfig() {
+  const tmpApp = initializeApp({ projectId: "excel-addin-auth" }, "tmpCfg");
+  const tmpDb = getFirestore(tmpApp);
 
-  await deleteApp(tmp);
-  initializeApp(fullCfg); // default (unnamed) app — now getAuth()/getFirestore() work globally
-  defaultAppInitialised = true;
+  const snap = await getDoc(doc(tmpDb, "config", "firebase"));
+  if (!snap.exists()) throw new Error("❌ Firebase config not found in Firestore.");
+
+  const config = snap.data();
+  await deleteApp(tmpApp);
+  return config;
 }
 
-// Inject UI HTML (stored in /config/ui) after successful login
-async function injectUI() {
-  const { getFirestore, doc, getDoc } = await import(
-    "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js"
-  );
-  const db = getFirestore();
-  const uiSnap = await getDoc(doc(db, "config", "ui"));
-  if (!uiSnap.exists()) throw new Error("❌ UI HTML not found in Firestore");
+// 🔐 Handle login logic
+async function handleLogin(email, password) {
+  const status = document.getElementById("status");
+  try {
+    status.textContent = "🔄 Preparing Firebase…";
 
-  document.open();
-  document.write(uiSnap.data().html);
-  document.close();
+    const config = await fetchFirebaseConfig();
+
+    // 🧠 Safe Firebase init (avoid app conflict)
+    const apps = getApps();
+    if (apps.length === 0) {
+      initializeApp(config); // Default unnamed app
+    } else {
+      const currentApp = getApp();
+      const currentOptions = currentApp.options;
+      if (JSON.stringify(currentOptions) !== JSON.stringify(config)) {
+        throw new Error("❌ Firebase already initialized with different config.");
+      }
+    }
+
+    status.textContent = "🔐 Signing in...";
+    const ok = await loginUser(email, password);
+    if (!ok) return;
+
+    localStorage.setItem("email", email);
+
+    // 🚀 Redirect to taskpane
+    window.location.href = "../ui/taskpane.html";
+
+  } catch (err) {
+    console.error("Login error:", err);
+    status.textContent = "❌ " + err.message;
+  }
 }
 
-// Handle login button click (DOM ready)
+// 🎯 Bind login button
 document.addEventListener("DOMContentLoaded", () => {
   const btn = document.getElementById("loginBtn");
-  if (!btn) return console.error("loginBtn not found in DOM");
+  if (btn) {
+    btn.addEventListener("click", () => {
+      const email = document.getElementById("emailInput").value.trim();
+      const password = document.getElementById("passwordInput").value.trim();
+      const status = document.getElementById("status");
 
-  btn.onclick = async () => {
-    const email    = document.getElementById("emailInput").value.trim();
-    const password = document.getElementById("passwordInput").value.trim();
-    const statusEl = document.getElementById("status");
+      if (!email || !password) {
+        status.textContent = "❌ Enter both fields.";
+        return;
+      }
 
-    if (!email || !password) {
-      statusEl.textContent = "❌ Enter both fields.";
-      return;
-    }
-
-    statusEl.textContent = "🔐 Initialising Firebase…";
-    try {
-      await ensureDefaultApp();
-      statusEl.textContent = "🔐 Logging in…";
-
-      const ok = await loginUser(email, password);
-      if (!ok) return; // error message already shown by loginUser
-
-      statusEl.textContent = "✅ Login successful. Loading add‑in UI…";
-      await injectUI();
-    } catch (err) {
-      console.error(err);
-      statusEl.textContent = "❌ " + err.message;
-    }
-  };
+      handleLogin(email, password);
+    });
+  }
 });
