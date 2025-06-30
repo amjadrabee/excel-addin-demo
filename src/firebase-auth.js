@@ -1,72 +1,109 @@
 import {
+  initializeApp,
+  getApps,
+  getApp
+} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+
+import {
   getAuth,
   signInWithEmailAndPassword,
   signOut
 } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+
 import {
   getFirestore,
   doc,
-  setDoc,
-  getDoc
+  getDoc,
+  setDoc
 } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
-// NOTE: The *default* Firebase app is initialised elsewhere (entry.js / login.js).
-// Every call here simply grabs getAuth() / getFirestore() from that default app.
+// ─────────────────────────────────────────────
+// ✅ Safe default app initialization (once only)
+// ─────────────────────────────────────────────
+function ensureFirebaseInitialized() {
+  const apps = getApps();
+  if (apps.length === 0) {
+    // Minimal fallback config (used early if full not loaded yet)
+    initializeApp({ projectId: "excel-addin-auth" });
+  }
+}
 
-// ───── Login with single‑session guard ─────
+// ⏪ Ensure initialized now
+ensureFirebaseInitialized();
+
+const auth = getAuth();
+const db = getFirestore();
+
+// ─────────────────────────────────────────────
+// 🔐 Login user (single session enforced)
+// ─────────────────────────────────────────────
 export async function loginUser(email, password) {
-  const statusEl = document.getElementById("login-status") || { textContent: "" };
+  const status = document.getElementById("status") || { textContent: "" };
 
   try {
-    const auth = getAuth();              // default app auth (must already exist)
     const cred = await signInWithEmailAndPassword(auth, email, password);
-    const uid  = cred.user.uid;
+    const uid = cred.user.uid;
 
-    const db       = getFirestore();
-    const sessRef  = doc(db, "sessions", uid);
+    const sessRef = doc(db, "sessions", uid);
     const sessSnap = await getDoc(sessRef);
+    const existingSession = sessSnap.exists() ? sessSnap.data().sessionId : null;
 
-    if (sessSnap.exists()) {
-      // Someone already logged in somewhere else
+    const localSessionId = localStorage.getItem("sessionId");
+
+    if (existingSession && existingSession !== localSessionId) {
       await signOut(auth);
-      statusEl.textContent = "❌ Account is already active on another device.";
+      status.textContent = "❌ You're already signed in on another device.";
       return false;
     }
 
-    // Create new session
-    const sessionId = crypto.randomUUID();
-    await setDoc(sessRef, { sessionId, timestamp: Date.now() });
+    const sessionId = localSessionId || crypto.randomUUID();
+
+    await setDoc(sessRef, {
+      sessionId,
+      timestamp: Date.now()
+    });
 
     localStorage.setItem("uid", uid);
     localStorage.setItem("sessionId", sessionId);
+    localStorage.setItem("email", email);
 
-    statusEl.textContent = "✅ Logged in!";
+    status.textContent = "✅ Login successful";
     return true;
   } catch (err) {
-    console.error(err);
-    statusEl.textContent = "❌ Login failed.";
+    console.error("Login failed:", err);
+    status.textContent = "❌ Login failed.";
     return false;
   }
 }
 
-// ───── Local logout (after request e‑mail) ─────
-export async function logoutRequestLocal() {
-  localStorage.removeItem("uid");
-  localStorage.removeItem("sessionId");
-  await signOut(getAuth());
-}
-
-// ───── Validate that the stored session is still active ─────
+// ─────────────────────────────────────────────
+// 🔒 Check if current session is valid
+// ─────────────────────────────────────────────
 export async function isSessionValid() {
-  const uid       = localStorage.getItem("uid");
+  const uid = localStorage.getItem("uid");
   const sessionId = localStorage.getItem("sessionId");
   if (!uid || !sessionId) return false;
 
   try {
-    const db   = getFirestore();
-    const snap = await getDoc(doc(db, "sessions", uid));
-    return snap.exists() && snap.data().sessionId === sessionId;
-  } catch {
+    const sessSnap = await getDoc(doc(db, "sessions", uid));
+    return sessSnap.exists() && sessSnap.data().sessionId === sessionId;
+  } catch (err) {
+    console.error("Session check failed:", err);
     return false;
   }
+}
+
+// ─────────────────────────────────────────────
+// 🔓 Logout locally after request logout
+// ─────────────────────────────────────────────
+export async function logoutRequestLocal() {
+  try {
+    await signOut(auth);
+  } catch (err) {
+    console.warn("Sign out warning:", err.message);
+  }
+
+  localStorage.removeItem("uid");
+  localStorage.removeItem("sessionId");
+  localStorage.removeItem("email");
 }
