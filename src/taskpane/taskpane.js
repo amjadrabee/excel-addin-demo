@@ -11,7 +11,7 @@ Office.onReady(async () => {
   document.getElementById("main-ui").style.display = "block";
 
   document.getElementById("convertBtn").onclick = convertToPDF;
-  document.getElementById("requestLogoutBtn").onclick = requestLogout;
+  document.getElementById("requestLogout").onclick = requestLogout;
 });
 
 async function convertToPDF() {
@@ -101,7 +101,6 @@ async function requestLogout() {
   try {
     const user = localStorage.getItem("uid") || "Unknown User";
 
-    // Call your logout email API
     await fetch("https://your-api.example.com/send-logout-request", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
