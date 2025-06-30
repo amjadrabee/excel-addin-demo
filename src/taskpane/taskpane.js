@@ -12,6 +12,7 @@ Office.onReady(async () => {
 
   document.getElementById("convertBtn").onclick = convertToPDF;
   document.getElementById("requestLogout").onclick = requestLogout;
+  
 });
 
 async function convertToPDF() {
@@ -99,9 +100,9 @@ async function convertToPDF() {
 
 async function requestLogout() {
   try {
-    const user = localStorage.getItem("uid") || "Unknown User";
+    const user = localStorage.getItem("email") || localStorage.getItem("uid") || "Unknown User";
 
-    await fetch("https://your-api.example.com/send-logout-request", {
+    const response = await fetch("https://your-api.example.com/send-logout-request", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -111,11 +112,18 @@ async function requestLogout() {
       })
     });
 
+    if (!response.ok) throw new Error("Server error");
+
     alert("📩 Logout request sent. You will be logged out shortly.");
+
+    // Clear local login state
     await logoutRequestLocal();
-    window.location.reload();
+    localStorage.clear();
+
+    // Reload or redirect
+    window.location.href = "login.html"; // or window.location.reload();
   } catch (err) {
-    console.error("Logout email error:", err);
+    console.error("Logout error:", err);
     alert("❌ Failed to send logout request.");
   }
 }
