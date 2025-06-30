@@ -13,7 +13,7 @@ import {
   getDoc
 } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
-import { loginUser, initAuthAndDb } from "../../firebase-auth.js";   //  ← path fixed
+import { loginUser, initAuthAndDb } from "../firebase-auth.js";   //  ← path fixed
 
 /* ── get full Firebase config from Firestore (temp unnamed app) */
 async function fetchConfig() {
@@ -34,8 +34,8 @@ async function doLogin(email, password) {
 
   /* safe default‑app init */
   let app;
-  if (getApps().length === 0)           app = initializeApp(cfg);
-  else                                   app = getApp();
+  if (getApps().length === 0) app = initializeApp(cfg);
+  else app = getApp();
 
   initAuthAndDb(app);                    // wire auth + db
 
@@ -43,8 +43,8 @@ async function doLogin(email, password) {
   if (!(await loginUser(email, password))) return;
 
   /* read redirect from Firestore */
-  const urlsSnap  = await getDoc(doc(getFirestore(app), "config", "urls"));
-  const taskpane  = urlsSnap.data()?.taskpane;
+  const urlsSnap = await getDoc(doc(getFirestore(app), "config", "urls"));
+  const taskpane = urlsSnap.data()?.taskpane;
   if (!taskpane) throw new Error("taskpane URL missing in Firestore");
 
   window.location.href = taskpane;       // 🚀
@@ -54,7 +54,7 @@ async function doLogin(email, password) {
 document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("loginBtn").addEventListener("click", () => {
     const email = document.getElementById("emailInput").value.trim();
-    const pass  = document.getElementById("passwordInput").value.trim();
+    const pass = document.getElementById("passwordInput").value.trim();
     const status = document.getElementById("status");
 
     if (!email || !pass) { status.textContent = "❌ Enter both fields."; return; }
