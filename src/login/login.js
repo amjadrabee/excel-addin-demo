@@ -1,58 +1,67 @@
-import { initializeApp, deleteApp, getApps } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
-import { loginUser } from "../firebase-auth.js";
+/*  login.js  —  loads config, initialises Firebase,
+                 signs user in, redirects to taskpane */
 
-// Step 1: Load config from Firestore via temporary app
-async function fetchFirebaseConfig() {
-  const tempApp = initializeApp({ projectId: "excel-addin-auth" }, "tmpCfg");
-  const tempDb = getFirestore(tempApp);
+import {
+  initializeApp,
+  deleteApp,
+  getApps,
+  getApp
+} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+import {
+  getFirestore,
+  doc,
+  getDoc
+} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
-  const snap = await getDoc(doc(tempDb, "config", "firebase"));
-  if (!snap.exists()) throw new Error("❌ Firebase config not found in Firestore.");
+import { loginUser, initAuthAndDb } from "../../firebase-auth.js";   //  ← path fixed
 
-  const config = snap.data();
-  await deleteApp(tempApp); // ✅ Moved after retrieving config
-  return config;
+/* ── get full Firebase config from Firestore (temp unnamed app) */
+async function fetchConfig() {
+  const tmp = initializeApp({ projectId: "excel-addin-auth" }, "tmp-cfg");
+  const cfgSnap = await getDoc(doc(getFirestore(tmp), "config", "firebase"));
+  if (!cfgSnap.exists()) throw new Error("Firebase config not found in Firestore");
+  const cfg = cfgSnap.data();
+  await deleteApp(tmp);
+  return cfg;
 }
 
-// Step 2: Handle login
-async function handleLogin(email, password) {
+/* ── main login flow */
+async function doLogin(email, password) {
   const status = document.getElementById("status");
-  status.textContent = "🔄 Preparing...";
 
-  try {
-    const config = await fetchFirebaseConfig();
+  status.textContent = "🔄 Loading…";
+  const cfg = await fetchConfig();
 
-    // Initialize default app only if not already initialized
-    if (getApps().length === 0) {
-      initializeApp(config);
-    }
+  /* safe default‑app init */
+  let app;
+  if (getApps().length === 0)           app = initializeApp(cfg);
+  else                                   app = getApp();
 
-    status.textContent = "🔐 Logging in...";
-    const ok = await loginUser(email, password);
-    if (!ok) return;
+  initAuthAndDb(app);                    // wire auth + db
 
-    // Store email in localStorage
-    localStorage.setItem("email", email);
+  status.textContent = "🔐 Signing in…";
+  if (!(await loginUser(email, password))) return;
 
-    // Redirect to actual UI
-    window.location.href = "/src/ui/taskpane.html";
-  } catch (err) {
-    console.error("Login error:", err);
-    status.textContent = "❌ " + (err.message || "Login failed.");
-  }
+  /* read redirect from Firestore */
+  const urlsSnap  = await getDoc(doc(getFirestore(app), "config", "urls"));
+  const taskpane  = urlsSnap.data()?.taskpane;
+  if (!taskpane) throw new Error("taskpane URL missing in Firestore");
+
+  window.location.href = taskpane;       // 🚀
 }
 
-// Step 3: Hook login button
-document.getElementById("loginBtn").onclick = () => {
-  const email = document.getElementById("emailInput").value.trim();
-  const password = document.getElementById("passwordInput").value.trim();
+/* ── attach handler after DOM ready */
+document.addEventListener("DOMContentLoaded", () => {
+  document.getElementById("loginBtn").addEventListener("click", () => {
+    const email = document.getElementById("emailInput").value.trim();
+    const pass  = document.getElementById("passwordInput").value.trim();
+    const status = document.getElementById("status");
 
-  const status = document.getElementById("status");
-  if (!email || !password) {
-    status.textContent = "❌ Enter both fields.";
-    return;
-  }
+    if (!email || !pass) { status.textContent = "❌ Enter both fields."; return; }
 
-  handleLogin(email, password);
-};
+    doLogin(email, pass).catch(err => {
+      console.error(err);
+      status.textContent = "❌ " + err.message;
+    });
+  });
+});
