@@ -1,88 +1,90 @@
 import {
-  getAuth,
-  signInWithEmailAndPassword,
-  signOut
-} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
-
+  initializeApp,
+  deleteApp,
+  getApps,
+  getApp
+} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
 import {
   getFirestore,
   doc,
-  setDoc,
-  getDoc,
-  deleteDoc
+  getDoc
 } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
-let auth;
-let db;
+import { loginUser, initAuthAndDb } from "../firebase-auth.js";
 
-export function initAuthAndDb(app) {
-  auth = getAuth(app);
-  db = getFirestore(app);
+/* ─── Load full Firebase config from Firestore (via temp app) ─── */
+async function fetchFirebaseConfig() {
+  // create / reuse a named temp app
+  const tmpName = "tmp-login";
+  const oldTmp = getApps().find(a => a.name === tmpName);
+  if (oldTmp) await deleteApp(oldTmp);
+
+  const tmp = initializeApp({ projectId: "excel-addin-auth" }, tmpName);
+  const cfgSnap = await getDoc(doc(getFirestore(tmp), "config", "firebase"));
+  if (!cfgSnap.exists()) throw new Error("❌ Firebase config missing in Firestore");
+  const cfg = cfgSnap.data();
+  await deleteApp(tmp);
+  return cfg;
 }
 
-// ─────────────────────────────────────────────────────────────
-// 🔐 LOGIN USER (single session enforced)
-// ─────────────────────────────────────────────────────────────
-export async function loginUser(email, password) {
-  const status = document.getElementById("status") || { textContent: "" };
+/* ─── Main login handler ─── */
+async function handleLogin(email, password) {
+  const status = document.getElementById("status");
 
   try {
-    const cred = await signInWithEmailAndPassword(auth, email, password);
-    const uid = cred.user.uid;
+    status.textContent = "🔄 Loading Firebase config…";
+    const cfg = await fetchFirebaseConfig();
 
-    const sessRef = doc(db, "sessions", uid);
-    const snap = await getDoc(sessRef);
-
-    if (snap.exists()) {
-      const existing = snap.data().sessionId;
-      if (existing && existing !== localStorage.getItem("sessionId")) {
-        await signOut(auth);
-        status.textContent = "❌ You're already signed in on another device.";
-        return false;
+    // ⚡ Safe default‑app initialisation
+    let app;
+    if (getApps().length === 0) {
+      app = initializeApp(cfg);                   // first time
+    } else {
+      app = getApp();                             // already initialised
+      // (optional) sanity‑check: configs must match projectId
+      if (app.options.projectId !== cfg.projectId) {
+        throw new Error("❌ Firebase already initialised with a different project.");
       }
     }
 
-    const sessionId = crypto.randomUUID();
-    await setDoc(sessRef, {
-      sessionId,
-      timestamp: Date.now()
-    });
+    // Attach auth/db to helper module
+    initAuthAndDb(app);
 
-    localStorage.setItem("uid", uid);
+    status.textContent = "🔐 Signing in…";
+    const ok = await loginUser(email, password);  // single‑session enforced
+    if (!ok) return;                              // error message set inside
+
+    // Save email for logout mail
     localStorage.setItem("email", email);
-    localStorage.setItem("sessionId", sessionId);
 
-    status.textContent = "✅ Login successful";
-    return true;
+    // 🔗 Get taskpane URL from Firestore, then redirect
+    const urlsSnap = await getDoc(doc(getFirestore(), "config", "urls"));
+    const redirectUrl = urlsSnap.data()?.taskpane;
+    if (!redirectUrl) throw new Error("❌ 'taskpane' URL missing in Firestore.");
+    window.location.href = redirectUrl;
+
   } catch (err) {
-    console.error("Login failed:", err);
-    status.textContent = "❌ Login failed.";
-    return false;
+    console.error("Login error:", err);
+    status.textContent = "❌ " + err.message;
   }
 }
 
-export async function isSessionValid() {
-  const uid = localStorage.getItem("uid");
-  const sessionId = localStorage.getItem("sessionId");
-  if (!uid || !sessionId) return false;
-
-  try {
-    const ref = doc(db, "sessions", uid);
-    const snap = await getDoc(ref);
-    return snap.exists() && snap.data().sessionId === sessionId;
-  } catch {
-    return false;
+/* ─── Wire the button once DOM is ready ─── */
+document.addEventListener("DOMContentLoaded", () => {
+  const btn = document.getElementById("loginBtn");
+  if (!btn) {
+    console.error("⚠️ Login button not found in DOM");
+    return;
   }
-}
+  btn.addEventListener("click", () => {
+    const email    = document.getElementById("emailInput").value.trim();
+    const password = document.getElementById("passwordInput").value.trim();
+    const status   = document.getElementById("status");
 
-export async function logoutRequestLocal() {
-  localStorage.removeItem("uid");
-  localStorage.removeItem("sessionId");
-  localStorage.removeItem("email");
-
-  try {
-    await signOut(auth);
-  } catch (err) {
-    console.warn("Sign out warning:", err.message);
-  }
-}
+    if (!email || !password) {
+      status.textContent = "❌ Enter both email and password.";
+      return;
+    }
+    handleLogin(email, password);
+  });
+});
