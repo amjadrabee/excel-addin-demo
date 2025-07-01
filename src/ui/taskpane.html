@@ -19,8 +19,8 @@
   <script type="module" src="../login/login.js"></script>
   <div id="main-ui" style="display: none;"> -->
 
-    <div id="main-ui" style="display: none;" style="display: flex; justify-content: space-between; align-items: center;">
-        <h3>Convert Word to PDF git5</h3>
+    <div id="main-ui" style="display: none;">
+        <h3>Convert Word to PDF git6</h3>
         <button onclick="requestLogout()" id="requestLogout" style="margin-left: auto;">
             Request Logout
         </button>
@@ -32,9 +32,9 @@
 
     <script type="module" src="../../dist/taskpane.js"></script>
     <script type="module" src="../taskpane/taskpane.js"></script>
-    <script>
+<!--     <script>
         async function requestLogout() {
-            const userEmail = localStorage.getItem("userEmail") || "Unknown User";
+            const userEmail = localStorage.getItem("uid") || "Unknown User";
 
             const subject = encodeURIComponent("Logout Request");
             const body = encodeURIComponent(`${userEmail} has requested to log out from the Excel Add-in.`);
@@ -49,7 +49,7 @@
             localStorage.removeItem("sessionId");
             location.reload();
         }
-    </script>
+    </script> -->
 
 
 </body>
