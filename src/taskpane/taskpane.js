@@ -1,7 +1,7 @@
 import { isSessionValid, logoutRequestLocal } from "../firebase-auth.js";
 
 Office.onReady(async () => {
-  
+
 
   // Show UI
   document.getElementById("main-ui").style.display = "block";
