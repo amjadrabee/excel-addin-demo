@@ -1,4 +1,4 @@
-import { isSessionValid, logoutRequestLocal } from "../firebase-auth.js";
+import { isSessionValid, logoutRequestLocal} from "../firebase-auth.js";
 
 Office.onReady(async () => {
   const ok = await isSessionValid();
@@ -6,27 +6,13 @@ Office.onReady(async () => {
     document.body.innerHTML = `<h2>🔒 Session Invalid</h2><p>Please reload the add-in and log in again.</p>`;
     return;
   }
-  const logoutBtn = document.getElementById("requestLogout");
-  if (logoutBtn) {
-    logoutBtn.onclick = requestLogout;
-    console.log("✅ Logout button connected");
-  } else {
-    console.error("❌ Logout button not found in DOM");
-  }
-});
-
+  
 // Show UI
 document.getElementById("main-ui").style.display = "block";
 
 document.getElementById("convertBtn").onclick = convertToPDF;
+document.getElementById("requestLogout").addEventListener("click", requestLogout);
 
-const logoutBtn = document.getElementById("requestLogout");
-if (logoutBtn) {
-  logoutBtn.onclick = requestLogout;
-  console.log("✅ Logout button bound after UI shown");
-}
-  
-});
 
 async function convertToPDF() {
   const fileInput = document.getElementById("uploadDocx");
@@ -112,31 +98,25 @@ async function convertToPDF() {
 }
 
 async function requestLogout() {
-  try {
-    const user = localStorage.getItem("email") || localStorage.getItem("uid") || "Unknown User";
+  const userEmail = localStorage.getItem("uid") || "Unknown";
 
-    const response = await fetch("https://your-api.example.com/send-logout-request", {
+  try {
+    // Send logout notification email (adjust API as needed)
+    await fetch("https://your-api.example.com/send-logout-request", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         to: "support@yourcompany.com",
         subject: "Logout Request",
-        message: `${user} has requested to log out from the Excel Add-in.`
-      })
+        message: `${userEmail} has requested to log out from the Excel Add-in.`,
+      }),
     });
 
-    if (!response.ok) throw new Error("Server error");
-
-    alert("📩 Logout request sent. You will be logged out shortly.");
-
-    // Clear local login state
+    alert("📩 Logout request sent. Logging you out...");
     await logoutRequestLocal();
-    localStorage.clear();
-
-    // Reload or redirect
-    window.location.href = "login.html"; // or window.location.reload();
+    window.location.reload();
   } catch (err) {
-    console.error("Logout error:", err);
+    console.error("Logout request failed:", err);
     alert("❌ Failed to send logout request.");
   }
 }
