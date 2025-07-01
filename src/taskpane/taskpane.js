@@ -1,11 +1,11 @@
 import { isSessionValid, logoutRequestLocal } from "../firebase-auth.js";
 
 Office.onReady(async () => {
-  const ok = await isSessionValid();
-  if (!ok) {
-    document.body.innerHTML = `<h2>🔒 Session Invalid</h2><p>Please reload the add-in and log in again.</p>`;
-    return;
-  }
+  // const ok = await isSessionValid();
+  // if (!ok) {
+  //   document.body.innerHTML = `<h2>🔒 Session Invalid</h2><p>Please reload the add-in and log in again.</p>`;
+  //   return;
+  // }
 
   // Show UI
   document.getElementById("main-ui").style.display = "block";
