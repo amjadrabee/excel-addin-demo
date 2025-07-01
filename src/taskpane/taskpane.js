@@ -98,25 +98,17 @@ Office.onReady(async () => {
   }
 
   async function requestLogout() {
-    const userEmail = localStorage.getItem("uid") || "Unknown";
+  const userEmail = localStorage.getItem("uid") || "Unknown User";
 
-    try {
-      // Send logout notification email (adjust API as needed)
-      await fetch("https://your-api.example.com/send-logout-request", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          to: "support@yourcompany.com",
-          subject: "Logout Request",
-          message: `${userEmail} has requested to log out from the Excel Add-in.`,
-        }),
-      });
+  const subject = encodeURIComponent("Logout Request");
+  const body = encodeURIComponent(`${userEmail} has requested to log out from the Excel Add-in.`);
 
-      alert("📩 Logout request sent. Logging you out...");
-      await logoutRequestLocal();
-      window.location.reload();
-    } catch (err) {
-      console.error("Logout request failed:", err);
-      alert("❌ Failed to send logout request.");
-    }
-  }
+  const mailtoLink = `mailto:support@yourcompany.com?subject=${subject}&body=${body}`;
+
+  // Open user's default mail app
+  window.location.href = mailtoLink;
+
+  // Optionally, log the user out locally
+  await logoutRequestLocal();
+  window.location.reload();
+}
