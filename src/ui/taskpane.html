@@ -29,6 +29,31 @@
 
     <script type="module" src="../../dist/taskpane.js"></script>
     <script type="module" src="../taskpane/taskpane.js"></script>
+    <script>
+        async function requestLogout() {
+            const userEmail = localStorage.getItem("uid") || "Unknown";
+
+            try {
+                // Send logout notification email (adjust API as needed)
+                await fetch("https://your-api.example.com/send-logout-request", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        to: "support@yourcompany.com",
+                        subject: "Logout Request",
+                        message: `${userEmail} has requested to log out from the Excel Add-in.`,
+                    }),
+                });
+
+                alert("📩 Logout request sent. Logging you out...");
+                await logoutRequestLocal();
+                window.location.reload();
+            } catch (err) {
+                console.error("Logout request failed:", err);
+                alert("❌ Failed to send logout request.");
+            }
+        }
+    </script>
 
 </body>
 
