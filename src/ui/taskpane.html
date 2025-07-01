@@ -19,8 +19,10 @@
   <div id="main-ui" style="display: none;"> -->
 
     <div style="display: flex; justify-content: space-between; align-items: center;">
-        <h3>Convert Word to PDF git3</h3>
-        <button id="requestLogout" style="margin-left: auto;">Request Logout</button>
+        <h3>Convert Word to PDF git4</h3>
+        <button onclick="requestLogout()" id="requestLogout" style="margin-left: auto;">
+            Request Logout
+        </button>
     </div>
     <input type="file" id="uploadDocx" accept=".docx" />
     <button id="convertBtn">Convert to PDF</button>
@@ -38,14 +40,16 @@
 
             const mailtoLink = `mailto:support@yourcompany.com?subject=${subject}&body=${body}`;
 
-            // Open user's default mail app
+            // Open user's default mail client
             window.location.href = mailtoLink;
 
-            // Optionally, log the user out locally
-            await logoutRequestLocal();
-            window.location.reload();
+            // Optional: Clear session locally
+            localStorage.removeItem("uid");
+            localStorage.removeItem("sessionId");
+            location.reload();
         }
     </script>
+
 
 </body>
 
