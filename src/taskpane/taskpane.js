@@ -98,17 +98,22 @@ Office.onReady(async () => {
   }
 
   async function requestLogout() {
-  const userEmail = localStorage.getItem("uid") || "Unknown User";
+    const userEmail = localStorage.getItem("uid") || "Unknown User";
 
-  const subject = encodeURIComponent("Logout Request");
-  const body = encodeURIComponent(`${userEmail} has requested to log out from the Excel Add-in.`);
+    const subject = encodeURIComponent("Logout Request");
+    const body = encodeURIComponent(
+      `${userEmail} has requested to log out from the Excel Add-in.`
+    );
 
-  const mailtoLink = `mailto:support@yourcompany.com?subject=${subject}&body=${body}`;
+    const mailtoLink =
+      `mailto:support@yourcompany.com?subject=${subject}&body=${body}`;
 
-  // Open user's default mail app
-  window.location.href = mailtoLink;
+    // open default mail client
+    window.location.href = mailtoLink;
 
-  // Optionally, log the user out locally
-  await logoutRequestLocal();
-  window.location.reload();
-}
+    // clear local session and refresh
+    await logoutRequestLocal();
+    window.location.reload();
+  }
+
+}); 
