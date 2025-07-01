@@ -74,8 +74,16 @@ export async function isSessionValid() {
   }
 }
 
-/*  local cleanup after logout‑request */
 export async function logoutRequestLocal() {
-  try { if (auth) await signOut(auth); } catch {}
-  ["uid","email","sessionId"].forEach(k => localStorage.removeItem(k));
+  const user = auth.currentUser;
+  if (!user) return;
+
+  try {
+    const docRef = doc(db, "sessions", user.email);
+    await updateDoc(docRef, { sessionId: null });
+    localStorage.clear();
+    await signOut(auth);
+  } catch (err) {
+    console.error("Error logging out:", err);
+  }
 }
