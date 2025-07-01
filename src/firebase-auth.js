@@ -74,16 +74,17 @@ export async function isSessionValid() {
   }
 }
 
-// export async function logoutRequestLocal() {
-//   const user = auth.currentUser;
-//   if (!user) return;
+export async function logoutRequestLocal() {
+  const user = auth.currentUser;
+  if (!user) return;
 
-//   try {
-//     const docRef = doc(db, "sessions", user.email);
-//     await updateDoc(docRef, { sessionId: null });
-//     localStorage.clear();
-//     await signOut(auth);
-//   } catch (err) {
-//     console.error("Error logging out:", err);
-//   }
-// }
+  try {
+    const sessionRef = doc(db, "sessions", user.email);
+    await updateDoc(sessionRef, { sessionId: null });
+    localStorage.clear();
+    await signOut(auth);
+  } catch (err) {
+    console.error("Error in logoutRequestLocal:", err);
+  }
+}
+
