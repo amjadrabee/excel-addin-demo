@@ -1,56 +1,58 @@
 <html lang="en">
 
 <head>
-    <meta charset="UTF-8" />
-    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta http-equiv="Content-Security-Policy"
-        content="default-src 'self'; child-src 'self' mailto:; script-src 'self' https://* 'unsafe-inline'; style-src 'self' 'unsafe-inline'">
-    <title>Excel Add-in Login</title>
-    <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
-    <link rel="stylesheet"
-        href="https://res-1.cdn.office.net/files/fabric-cdn-prod_20230815.002/office-ui-fabric-core/11.1.0/css/fabric.min.css" />
-    <link href="../taskpane/taskpane.css" rel="stylesheet" />
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; child-src 'self' mailto:; script-src 'self' https://* 'unsafe-inline'; style-src 'self' 'unsafe-inline'">
+  <title>Excel Add-in Login</title>
+  <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+  <link rel="stylesheet"
+    href="https://res-1.cdn.office.net/files/fabric-cdn-prod_20230815.002/office-ui-fabric-core/11.1.0/css/fabric.min.css" />
+  <link href="../taskpane/taskpane.css" rel="stylesheet" />
 </head>
 
 <body>
-    <div id="main-ui">
-        <h3>Convert Word to PDF git2</h3>
-        <input type="file" id="uploadDocx" accept=".docx" />
-        <button id="convertBtn">Convert to PDF</button>
-        <button id="requestLogout">Request Logout</button>
-        <div id="status"></div>
-    </div>
-    <script type="module" src="../taskpane/taskpane.js"></script>
 
-<!--     <script type="module" src="../../dist/taskpane.js"></script> -->
-    <!--     <script>
-        async function requestLogout() {
-            const userEmail = localStorage.getItem("uid") || "Unknown User";
+  <!-- <div id="app">Loading...</div>
+  <script type="module" src="../login/login.js"></script>
+  <div id="main-ui" style="display: none;"> -->
 
-            const subject = encodeURIComponent("Logout Request");
-            const body = encodeURIComponent(`${userEmail} has requested to log out from the Excel Add-in.`);
+  <div id="main-ui" style="display: none;">
+    <h3>Convert Word to PDF git2</h3>
+    <input type="file" id="uploadDocx" accept=".docx" />
+    <button id="convertBtn">Convert to PDF</button>
+    <button id="requestLogout">Request Logout</button>
+    <div id="status"></div>
+  </div>
 
-            const mailtoLink = `mailto:support@yourcompany.com?subject=${subject}&body=${body}`;
+  <script type="module" src="../taskpane/taskpane.js"></script>
 
-            // Open user's default mail client
-            window.location.href = mailtoLink;
+  <!-- 
+    <script>
+      async function requestLogout() {
+          const userEmail = localStorage.getItem("uid") || "Unknown User";
 
-            // Optional: Clear session locally
-            localStorage.removeItem("uid");
-            localStorage.removeItem("sessionId");
-            location.reload();
-        }
-    </script> -->
+          const subject = encodeURIComponent("Logout Request");
+          const body = encodeURIComponent(`${userEmail} has requested to log out from the Excel Add-in.`);
 
+          const mailtoLink = `mailto:support@yourcompany.com?subject=${subject}&body=${body}`;
+
+          // Open user's default mail client
+          window.location.href = mailtoLink;
+
+          // Optional: Clear session locally
+          localStorage.removeItem("uid");
+          localStorage.removeItem("sessionId");
+          location.reload();
+      }
+    </script> 
+  -->
+
+  <!-- Firebase and task scripts -->
+  <!-- <script type="module" src="../firebase-auth.js"></script>
+  <script type="module" src="taskpane.js"></script> -->
 
 </body>
 
 </html>
-
-
-<!-- Firebase and task scripts -->
-<!-- <script type="module" src="../firebase-auth.js"></script>
-<script type="module" src="taskpane.js"></script>
-    <script type="module" src="taskpane.js"></script>
-     -->
