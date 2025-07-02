@@ -281,13 +281,20 @@ async function convertToPDF() {
     });
 
     if (!jobRes.ok) {
-      const txt = await jobRes.text();
-      throw new Error(`Job create failed: ${jobRes.status} ${txt}`);
-    }
+    const errorText = await jobRes.text();
+    throw new Error(`❌ Failed to create conversion job. ${errorText}`);
+}
 
-    const job       = await jobRes.json();
-    const uploadTask = Object.values(job.data.tasks)
-                              .find(t => t.operation === "import/upload");
+const job = await jobRes.json();
+if (!job || !job.data || !job.data.tasks) {
+    console.error("❌ Invalid response from CloudConvert:", job);
+    throw new Error("❌ Unexpected API response format.");
+}
+
+const uploadTask = Object.values(job.data.tasks).find(t => t.operation === "import/upload");
+if (!uploadTask || !uploadTask.result || !uploadTask.result.form) {
+    throw new Error("❌ Upload task not found or incomplete in job response.");
+}
 
     /* 4.  Upload the DOCX */
     status.innerText = "🔄 Uploading file…";
