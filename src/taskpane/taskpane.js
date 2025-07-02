@@ -22,7 +22,7 @@ async function ensureFirebase() {
 Office.onReady(async () => {
   await ensureFirebase();
   document.getElementById("main-ui").style.display = "block";
-
+  document.getElementById("requestLogout").addEventListener("click", requestLogout);
   document.getElementById("convertBtn").onclick = convertToPDF;
   document.getElementById("requestLogout").addEventListener("click", requestLogout);
 });
@@ -95,13 +95,11 @@ async function convertToPDF() {
 }
 
 async function requestLogout() {
-  const email = localStorage.getItem("email") || "Unknown";
-  const mailto =
-    `mailto:support@yourcompany.com` +
-    `?subject=${encodeURIComponent("Logout Request")}` +
-    `&body=${encodeURIComponent(`${email} requests logout from Excel Add‑in.`)}`;
-
-  window.location.href = mailto;
+  const userEmail = localStorage.getItem("uid") || "Unknown User";
+  const subject = encodeURIComponent("Logout Request");
+  const body = encodeURIComponent(`${userEmail} has requested to log out from the Excel Add-in.`);
+  const mailtoLink = `mailto:support@yourcompany.com?subject=${subject}&body=${body}`;
+  window.location.href = mailtoLink;
   await logoutRequestLocal();
   window.location.reload();
 }
