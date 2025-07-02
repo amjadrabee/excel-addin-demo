@@ -209,6 +209,8 @@
 /*  src/taskpane/taskpane.js  */
 
 /* ─── Firebase bootstrap (projectId‑only) ─── */
+// src/taskpane/taskpane.js
+
 import {
   initializeApp,
   getApps,
@@ -220,36 +222,62 @@ import {
   getDoc
 } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
-let cloudConvertApiKey = null; // Declare a variable to store the API key
+// Adjust this path if firebase-auth.js is in a different location relative to taskpane.js
+import {
+  logoutRequestLocal
+} from "../firebase-auth.js";
+
+
+let cloudConvertApiKey = null; // Stores the API key fetched from Firestore
 
 async function ensureFirebase() {
-  if (getApps().length) return; // already initialised
+  if (getApps().length) {
+    // If the default Firebase app is already initialized (e.g., on page refresh),
+    // try to re-fetch the CloudConvert key if it's not already set.
+    const defaultApp = getApps().find(app => app.name === '[DEFAULT]');
+    if (defaultApp && !cloudConvertApiKey) {
+      try {
+        const cfgDb = getFirestore(defaultApp);
+        const cloudConvertSnap = await getDoc(doc(cfgDb, "config", "cloudconvert"));
+        if (cloudConvertSnap.exists() && cloudConvertSnap.data().key) {
+          cloudConvertApiKey = cloudConvertSnap.data().key;
+        } else {
+          console.warn("CloudConvert API key still missing after re-fetch attempt from existing Firebase app.");
+        }
+      } catch (error) {
+        console.error("Error during re-fetching CloudConvert API key from existing app:", error);
+      }
+    }
+    return;
+  }
 
-  // Initialize a temporary Firebase app to fetch configurations
+  // Initialize a temporary Firebase app to fetch configurations (before default app setup)
   const tmp = initializeApp({
     projectId: "excel-addin-auth"
   }, "tmp");
   const cfgDb = getFirestore(tmp);
 
   try {
-    // Fetch Firebase config (still public)
+    // Fetch Firebase config
     const firebaseSnap = await getDoc(doc(cfgDb, "config", "firebase"));
     if (!firebaseSnap.exists()) {
-      throw new Error("❌ Firebase config missing in Firestore");
+      throw new Error("❌ Firebase config missing in Firestore.");
     }
-    // Initialize the default Firebase app with the fetched config
-    initializeApp(firebaseSnap.data());
+    initializeApp(firebaseSnap.data()); // Initialize the default Firebase app
 
-    // Fetch CloudConvert API key (now also public due to rules change)
+    // Fetch CloudConvert API key
     const cloudConvertSnap = await getDoc(doc(cfgDb, "config", "cloudconvert"));
     if (!cloudConvertSnap.exists() || !cloudConvertSnap.data().key) {
-      throw new Error("❌ CloudConvert API key missing in Firestore");
+      throw new Error("❌ CloudConvert API key missing in Firestore or empty.");
     }
     cloudConvertApiKey = cloudConvertSnap.data().key;
 
+  } catch (error) {
+    console.error("Error during add-in configuration (Firebase/CloudConvert key fetch):", error);
+    document.getElementById("status").textContent = `❌ Add-in configuration failed. Check console.`;
+    cloudConvertApiKey = null; // Ensure key is null on error
   } finally {
-    // Ensure the temporary app is deleted regardless of success or failure
-    await deleteApp(tmp);
+    await deleteApp(tmp); // Delete the temporary app
   }
 }
 
@@ -257,15 +285,19 @@ async function ensureFirebase() {
 Office.onReady(async () => {
   await ensureFirebase();
 
-  /* show UI once loaded */
+  // Show the UI only after Firebase and config are processed
   document.getElementById("main-ui").style.display = "block";
 
-  /* hook buttons safely */
+  /* Hook buttons safely */
   const convertBtn = document.getElementById("convertBtn");
   const logoutBtn = document.getElementById("requestLogout");
 
-  if (convertBtn) convertBtn.addEventListener("click", convertToPDF);
-  if (logoutBtn) logoutBtn.addEventListener("click", requestLogout);
+  if (convertBtn) {
+    convertBtn.addEventListener("click", convertToPDF);
+  }
+  if (logoutBtn) {
+    logoutBtn.addEventListener("click", requestLogout);
+  }
 });
 
 /* ─── Convert Word → PDF ─── */
@@ -279,14 +311,14 @@ async function convertToPDF() {
     return;
   }
 
+  // Ensure CloudConvert API key is available before proceeding
   if (!cloudConvertApiKey) {
-    status.textContent = "❌ CloudConvert API key not loaded. Please try again.";
-    console.error("CloudConvert API key is null or not fetched.");
+    status.textContent = "❌ CloudConvert API key not loaded. Check console for configuration errors.";
+    console.error("CloudConvert API key is missing. Conversion cannot proceed.");
     return;
   }
 
-  /* Use the dynamically loaded CloudConvert API key */
-  const apiKey = cloudConvertApiKey;
+  const apiKey = cloudConvertApiKey; // Use the fetched key
 
   try {
     status.textContent = "🔄 Creating conversion job…";
@@ -318,8 +350,21 @@ async function convertToPDF() {
     });
 
     if (!jobRes.ok) {
-      const errorData = await jobRes.json();
-      throw new Error(`CloudConvert error ${jobRes.status}: ${JSON.stringify(errorData)}`);
+      // Enhanced error handling for CloudConvert API responses
+      let errorInfo = `CloudConvert API error: ${jobRes.status}`;
+      try {
+        const errorData = await jobRes.json();
+        if (errorData && errorData.message) {
+          errorInfo += ` - ${errorData.message}`;
+        } else if (errorData && errorData.errors && errorData.errors.length > 0) {
+          errorInfo += ` - ${errorData.errors[0].message || 'Unknown API error details'}`;
+        } else {
+          errorInfo += ` - (Raw response: ${JSON.stringify(errorData)})`;
+        }
+      } catch (e) {
+        errorInfo += ` - (Failed to parse error response body: ${e.message})`;
+      }
+      throw new Error(errorInfo);
     }
 
     const job = await jobRes.json();
@@ -339,7 +384,7 @@ async function convertToPDF() {
       body: fd
     });
     if (!uploadRes.ok) {
-      throw new Error(`CloudConvert upload failed: ${uploadRes.status}`);
+      throw new Error(`CloudConvert upload failed with status: ${uploadRes.status}`);
     }
 
 
@@ -357,14 +402,18 @@ async function convertToPDF() {
         exportTask = info.data.tasks.find(t => t.name === "export");
         break;
       } else if (info.data.status === "error") {
-        throw new Error(`CloudConvert job failed: ${info.data.message || 'Unknown error'}`);
+        throw new Error(`CloudConvert job failed: ${info.data.message || 'Unknown error during conversion.'}`);
       }
-      await new Promise(r => setTimeout(r, 3000));
+      await new Promise(r => setTimeout(r, 3000)); // Wait 3 seconds before next poll
     }
 
     /* Step 4 — show link */
+    if (!exportTask || !exportTask.result || !exportTask.result.files || exportTask.result.files.length === 0) {
+        throw new Error("CloudConvert did not return an exported file URL.");
+    }
     const url = exportTask.result.files[0].url;
     status.innerHTML = `✅ Done! <a href="${url}" target="_blank">Download PDF</a>`;
+
   } catch (err) {
     console.error("Conversion error:", err);
     status.textContent = `❌ Conversion failed: ${err.message || "See console for details."}`;
@@ -372,17 +421,13 @@ async function convertToPDF() {
 }
 
 /* ─── Request Logout (opens mail client) ─── */
-import {
-  logoutRequestLocal
-} from "../firebase-auth.js";
 async function requestLogout() {
   const email = localStorage.getItem("email") || "Unknown User";
   const subject = encodeURIComponent("Logout Request");
   const body = encodeURIComponent(`${email} requests logout from Excel Add‑in.`);
   window.location.href = `mailto:support@yourcompany.com?subject=${subject}&body=${body}`;
 
-  /* local clean‑up */
+  /* Local clean‑up */
   await logoutRequestLocal();
-  // The logoutRequestLocal function now handles localStorage.clear() and signOut(auth)
-  // Optional: window.location.reload(); if you want to force a page refresh after mailto link
+  // Optional: window.location.reload(); // Uncomment if you want to force a page refresh after mailto link
 }
