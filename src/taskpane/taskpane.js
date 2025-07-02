@@ -139,24 +139,24 @@ import { getFirestore, doc, getDoc, deleteApp } from "https://www.gstatic.com/fi
 
 
 async function ensureFirebase() {
-    if (getApps().length) return;
+  if (getApps().length) return;
 
-    const tmpApp = initializeApp({ projectId: "excel-addin-auth" }, "tmp-taskpane");
-    const tmpDb = getFirestore(tmpApp);
-    const cfgSnap = await getDoc(doc(tmpDb, "config", "firebase"));
-    if (!cfgSnap.exists()) throw new Error("❌ Firebase config missing in Firestore.");
-    const fullCfg = cfgSnap.data();
-    await deleteApp(tmpApp);
+  const tmpApp = initializeApp({ projectId: "excel-addin-auth" }, "tmp-taskpane");
+  const tmpDb = getFirestore(tmpApp);
+  const cfgSnap = await getDoc(doc(tmpDb, "config", "firebase"));
+  if (!cfgSnap.exists()) throw new Error("❌ Firebase config missing in Firestore.");
+  const fullCfg = cfgSnap.data();
+  await deleteApp(tmpApp);
 
-    initializeApp(fullCfg);
+  initializeApp(fullCfg);
 }
 
 Office.onReady(async () => {
-    await ensureFirebase();
-    document.getElementById("main-ui").style.display = "block";
-    document.getElementById("convertBtn").addEventListener("click", convertToPDF);
-    document.getElementById("requestLogout").addEventListener("click", requestLogout);
-    document.getElementById("convertBtn").onclick = convertToPDF;
+  await ensureFirebase();
+  document.getElementById("main-ui").style.display = "block";
+  document.getElementById("convertBtn").addEventListener("click", convertToPDF);
+  document.getElementById("requestLogout").addEventListener("click", requestLogout);
+  document.getElementById("convertBtn").onclick = convertToPDF;
 
 });
 
@@ -242,8 +242,8 @@ Office.onReady(async () => {
 /* ────────────  Convert Word → PDF  ──────────── */
 async function convertToPDF() {
   const fileInput = document.getElementById("uploadDocx");
-  const status    = document.getElementById("status");
-  const file      = fileInput.files[0];
+  const status = document.getElementById("status");
+  const file = fileInput.files[0];
 
   if (!file) {
     status.innerText = "❌ Select a .docx file first.";
@@ -263,42 +263,35 @@ async function convertToPDF() {
 
     /* 3.  Create a job with three tasks (upload → convert → export) */
     const jobRes = await fetch("https://api.cloudconvert.com/v2/jobs", {
-      method:  "POST",
+      method: "POST",
       headers: {
-        "Authorization": `Bearer ${apiKey}`,
-        "Content-Type":  "application/json"
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json"
       },
       body: JSON.stringify({
         tasks: {
-          upload:  { operation: "import/upload" },
-          convert: { operation: "convert",
-                     input: "upload",
-                     input_format: "docx",
-                     output_format: "pdf" },
-          export:  { operation: "export/url", input: "convert" }
+          upload: { operation: "import/upload" },
+          convert: {
+            operation: "convert",
+            input: "upload",
+            input_format: "docx",
+            output_format: "pdf"
+          },
+          export: { operation: "export/url", input: "convert" }
         }
       })
     });
 
     if (!jobRes.ok) {
-    const errorText = await jobRes.text();
-    throw new Error(`❌ Failed to create conversion job. ${errorText}`);
-}
+      const errorText = await jobRes.text();
+      console.error("CloudConvert job creation failed:", errorText);
+      throw new Error(`❌ Failed to create conversion job (HTTP ${jobRes.status}).`);
+    }
 
-const job = await jobRes.json();
-if (!job || !job.data || !job.data.tasks) {
-    console.error("❌ Invalid response from CloudConvert:", job);
-    throw new Error("❌ Unexpected API response format.");
-}
-
-const uploadTask = Object.values(job.data.tasks).find(t => t.operation === "import/upload");
-if (!uploadTask || !uploadTask.result || !uploadTask.result.form) {
-    throw new Error("❌ Upload task not found or incomplete in job response.");
-}
 
     /* 4.  Upload the DOCX */
     status.innerText = "🔄 Uploading file…";
-    const formData   = new FormData();
+    const formData = new FormData();
     for (const k in uploadTask.result.form.parameters) {
       formData.append(k, uploadTask.result.form.parameters[k]);
     }
@@ -336,11 +329,11 @@ if (!uploadTask || !uploadTask.result || !uploadTask.result.form) {
 
 
 async function requestLogout() {
-    const userEmail = localStorage.getItem("uid") || "Unknown User";
-    const subject = encodeURIComponent("Logout Request");
-    const body = encodeURIComponent(`${userEmail} has requested to log out from the Excel Add-in.`);
-    const mailtoLink = `mailto:support@yourcompany.com?subject=${subject}&body=${body}`;
-    window.location.href = mailtoLink;
-    await logoutRequestLocal();
-    window.location.reload();
+  const userEmail = localStorage.getItem("uid") || "Unknown User";
+  const subject = encodeURIComponent("Logout Request");
+  const body = encodeURIComponent(`${userEmail} has requested to log out from the Excel Add-in.`);
+  const mailtoLink = `mailto:support@yourcompany.com?subject=${subject}&body=${body}`;
+  window.location.href = mailtoLink;
+  await logoutRequestLocal();
+  window.location.reload();
 }
