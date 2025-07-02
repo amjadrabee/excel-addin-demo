@@ -22,9 +22,10 @@ async function ensureFirebase() {
 Office.onReady(async () => {
   await ensureFirebase();
   document.getElementById("main-ui").style.display = "block";
+  document.getElementById("convertBtn").addEventListener("click", convertToPDF);
   document.getElementById("requestLogout").addEventListener("click", requestLogout);
   document.getElementById("convertBtn").onclick = convertToPDF;
-  document.getElementById("requestLogout").addEventListener("click", requestLogout);
+  
 });
 
 async function convertToPDF() {
@@ -38,17 +39,18 @@ async function convertToPDF() {
   }
 
   try {
-    status.innerText = "🔄 Fetching API key…";
+    status.innerText = "🔄 Fetching API key...";
 
     const auth = getAuth();
     const db = getFirestore();
-    if (!auth.currentUser) throw new Error("❌ Not logged in.");
+    const user = auth.currentUser;
+    if (!user) throw new Error("❌ Not logged in.");
 
     const keySnap = await getDoc(doc(db, "config", "cloudconvert"));
     if (!keySnap.exists()) throw new Error("❌ API key not found.");
     const apiKey = keySnap.data().key;
 
-    status.innerText = "🔄 Uploading…";
+    status.innerText = "🔄 Uploading...";
 
     const jobRes = await fetch("https://api.cloudconvert.com/v2/jobs", {
       method: "POST",
@@ -59,7 +61,12 @@ async function convertToPDF() {
       body: JSON.stringify({
         tasks: {
           upload: { operation: "import/upload" },
-          convert: { operation: "convert", input: "upload", input_format: "docx", output_format: "pdf" },
+          convert: {
+            operation: "convert",
+            input: "upload",
+            input_format: "docx",
+            output_format: "pdf"
+          },
           export: { operation: "export/url", input: "convert" }
         }
       })
@@ -69,28 +76,35 @@ async function convertToPDF() {
     const uploadTask = Object.values(job.data.tasks).find(t => t.operation === "import/upload");
 
     const formData = new FormData();
-    for (const k in uploadTask.result.form.parameters) formData.append(k, uploadTask.result.form.parameters[k]);
+    for (const key in uploadTask.result.form.parameters) {
+      formData.append(key, uploadTask.result.form.parameters[key]);
+    }
     formData.append("file", file);
 
-    await fetch(uploadTask.result.form.url, { method: "POST", body: formData });
+    await fetch(uploadTask.result.form.url, {
+      method: "POST",
+      body: formData
+    });
 
-    status.innerText = "⏳ Converting…";
+    status.innerText = "⏳ Converting...";
 
-    let done = false, exportTask;
+    let done = false;
+    let exportTask;
     while (!done) {
-      const pollJob = await fetch(`https://api.cloudconvert.com/v2/jobs/${job.data.id}`, {
+      const poll = await fetch(`https://api.cloudconvert.com/v2/jobs/${job.data.id}`, {
         headers: { Authorization: `Bearer ${apiKey}` }
-      }).then(r => r.json());
-
-      done = pollJob.data.status === "finished";
-      exportTask = pollJob.data.tasks.find(t => t.name === "export");
+      });
+      const updatedJob = await poll.json();
+      done = updatedJob.data.status === "finished";
+      exportTask = updatedJob.data.tasks.find(t => t.name === "export");
       if (!done) await new Promise(r => setTimeout(r, 3000));
     }
+
     const fileUrl = exportTask.result.files[0].url;
     status.innerHTML = `✅ Done! <a href="${fileUrl}" target="_blank">Download PDF</a>`;
   } catch (err) {
     console.error(err);
-    status.innerText = "❌ Conversion failed. Check console.";
+    status.innerText = "❌ Conversion failed. Check the console for errors.";
   }
 }
 
