@@ -1,4 +1,3 @@
-
 /*  firebase-auth.js
     — single‑session support (one device at a time)           */
 
