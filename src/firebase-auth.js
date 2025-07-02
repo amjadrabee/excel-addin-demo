@@ -98,6 +98,8 @@
 /*  firebase-auth.js
     — single‑session support (one device at a time)           */
 
+// src/firebase-auth.js
+
 import {
   getAuth,
   signInWithEmailAndPassword,
@@ -108,12 +110,12 @@ import {
   doc,
   getDoc,
   setDoc,
-  deleteDoc // <-- Added this import for deleting documents
+  deleteDoc
 } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
-let auth, db;
+let auth, db; // These will be initialized once the default Firebase app is ready
 
-/* called once from login.js after default app is initialised */
+/* Called once from login.js (or wherever your main app init happens) after default app is initialised */
 export function initAuthAndDb(app) {
   auth = getAuth(app);
   db = getFirestore(app);
@@ -125,7 +127,12 @@ export function initAuthAndDb(app) {
 export async function loginUser(email, password) {
   const status = document.getElementById("status") || {
     textContent: ""
-  };
+  }; // Fallback for status div if not present
+  if (!auth || !db) {
+    console.error("Firebase Auth or Firestore not initialized in firebase-auth.js during login attempt.");
+    status.textContent = "❌ Internal error: Firebase not ready.";
+    return false;
+  }
 
   try {
     const cred = await signInWithEmailAndPassword(auth, email, password);
@@ -147,7 +154,7 @@ export async function loginUser(email, password) {
     await setDoc(sessRef, {
       sessionId,
       timestamp: Date.now(),
-      email: email // Store email for easier lookup/debugging if needed
+      email: email
     });
 
     /* persist locally */
@@ -169,8 +176,10 @@ export async function loginUser(email, password) {
 export async function isSessionValid() {
   const uid = localStorage.getItem("uid");
   const id = localStorage.getItem("sessionId");
-  // Ensure auth and db are initialized before trying to use them
-  if (!uid || !id || !db || !auth) return false;
+
+  if (!uid || !id || !db || !auth) {
+    return false;
+  }
 
   try {
     const s = await getDoc(doc(db, "sessions", uid));
@@ -182,32 +191,21 @@ export async function isSessionValid() {
 }
 
 export async function logoutRequestLocal() {
-  const uid = localStorage.getItem("uid"); // Get UID from local storage
-  if (!uid) {
-    // If no UID, nothing to clear in Firestore, just clear local storage and sign out.
-    localStorage.clear();
-    if (auth && auth.currentUser) {
-      await signOut(auth);
-    }
-    console.log("No UID found, local data cleared and signed out.");
-    return;
-  }
+  const uid = localStorage.getItem("uid");
 
   try {
-    const sessionRef = doc(db, "sessions", uid); // Use UID as the document ID
-    await deleteDoc(sessionRef); // Delete the session document from Firestore
-    console.log("Firestore session document deleted for UID:", uid);
+    if (uid && db) {
+      const sessionRef = doc(db, "sessions", uid);
+      await deleteDoc(sessionRef); // Delete the session document from Firestore
+    }
 
-    localStorage.clear(); // Clear all local storage items related to the session
-    console.log("Local storage cleared.");
-
+    localStorage.clear(); // Clear all local storage items
     if (auth && auth.currentUser) {
       await signOut(auth); // Sign out from Firebase authentication
-      console.log("Firebase user signed out.");
     }
   } catch (err) {
-    console.error("Error in logoutRequestLocal:", err);
-    // Even if Firestore deletion fails, attempt to clear local storage and sign out Firebase
+    console.error("Error during logout cleanup:", err);
+    // Attempt to clear local storage and sign out even if Firestore deletion fails
     localStorage.clear();
     if (auth && auth.currentUser) {
       await signOut(auth);
