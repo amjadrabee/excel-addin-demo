@@ -4,7 +4,8 @@
     <meta charset="UTF-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; child-src 'self' mailto:; script-src 'self' https://* 'unsafe-inline'; style-src 'self' 'unsafe-inline'">
+    <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; child-src 'self' mailto:; script-src 'self' https://* 'unsafe-inline'; style-src 'self' 'unsafe-inline'">
     <title>Excel Add-in Login</title>
     <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
     <link rel="stylesheet"
@@ -19,18 +20,17 @@
   <script type="module" src="../login/login.js"></script>
   <div id="main-ui" style="display: none;"> -->
 
-    <div id="main-ui" style="display:non;">
-        <h3>Convert Word to PDF git8</h3>
+    <div id="main-ui" style="display: none;">
+        <h3>Convert Word to PDF git9</h3>
+        <input type="file" id="uploadDocx" accept=".docx" />
+        <button id="convertBtn">Convert to PDF</button>
         <button id="requestLogout">Request Logout</button>
-    </div>
-    <input type="file" id="uploadDocx" accept=".docx" />
-    <button id="convertBtn">Convert to PDF</button>
-    <div id="status"></div>
+        <div id="status"></div>
     </div>
 
     <script type="module" src="../../dist/taskpane.js"></script>
     <script type="module" src="../taskpane/taskpane.js"></script>
-<!--     <script>
+    <!--     <script>
         async function requestLogout() {
             const userEmail = localStorage.getItem("uid") || "Unknown User";
 
