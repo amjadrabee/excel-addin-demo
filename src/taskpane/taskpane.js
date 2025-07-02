@@ -50,40 +50,47 @@ Office.onReady(async () => {
 /* ─── Convert DOCX → PDF via CloudConvert ─────────────────── */
 async function convertToPDF() {
   const fileInput = document.getElementById("uploadDocx");
-  const status    = document.getElementById("status");
-  const file      = fileInput.files[0];
+  const status = document.getElementById("status");
+  const file = fileInput.files[0];
 
   if (!file) {
-    status.textContent = "❌ Select a .docx file.";
+    status.innerText = "❌ Select a .docx file.";
     return;
   }
 
   try {
-    status.textContent = "🔄 Fetching API key…";
+    status.innerText = "🔄 Fetching API key...";
+
+    const { getAuth } = await import("https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js");
+    const { getFirestore, doc, getDoc } = await import("https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js");
 
     const auth = getAuth();
-    const db   = getFirestore();
-
-    if (!auth.currentUser) throw new Error("❌ Not logged in.");
+    const db = getFirestore();
+    const user = auth.currentUser;
+    if (!user) throw new Error("❌ Not logged in.");
 
     const keySnap = await getDoc(doc(db, "config", "cloudconvert"));
     if (!keySnap.exists()) throw new Error("❌ API key not found.");
     const apiKey = keySnap.data().key;
 
-    /* create CloudConvert job */
-    status.textContent = "🔄 Uploading…";
+    status.innerText = "🔄 Uploading...";
+
     const jobRes = await fetch("https://api.cloudconvert.com/v2/jobs", {
-      method : "POST",
+      method: "POST",
       headers: {
-        Authorization : `Bearer ${apiKey}`,
+        Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
         tasks: {
-          upload : { operation: "import/upload" },
-          convert: { operation: "convert", input: "upload",
-                     input_format: "docx", output_format: "pdf" },
-          export : { operation: "export/url", input: "convert" }
+          upload: { operation: "import/upload" },
+          convert: {
+            operation: "convert",
+            input: "upload",
+            input_format: "docx",
+            output_format: "pdf"
+          },
+          export: { operation: "export/url", input: "convert" }
         }
       })
     });
