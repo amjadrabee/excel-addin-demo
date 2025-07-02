@@ -232,7 +232,7 @@ async function ensureFirebase() {
   const cfgDb = getFirestore(tmp);
 
   try {
-    // Fetch Firebase config
+    // Fetch Firebase config (still public)
     const firebaseSnap = await getDoc(doc(cfgDb, "config", "firebase"));
     if (!firebaseSnap.exists()) {
       throw new Error("❌ Firebase config missing in Firestore");
@@ -240,7 +240,7 @@ async function ensureFirebase() {
     // Initialize the default Firebase app with the fetched config
     initializeApp(firebaseSnap.data());
 
-    // Fetch CloudConvert API key
+    // Fetch CloudConvert API key (now also public due to rules change)
     const cloudConvertSnap = await getDoc(doc(cfgDb, "config", "cloudconvert"));
     if (!cloudConvertSnap.exists() || !cloudConvertSnap.data().key) {
       throw new Error("❌ CloudConvert API key missing in Firestore");
