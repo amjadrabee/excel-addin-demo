@@ -509,7 +509,7 @@ Office.onReady(async () => {
 
   // Show the UI immediately as config fetching is no longer dependent on Firebase
   document.getElementById("main-ui").style.display = "block";
-  document.getElementById("status").textContent = "✅ Add-in ready.";
+  document.getElementById("status").textContent = "Add-in ready.";
 
   /* Hook buttons safely */
   const convertBtn = document.getElementById("convertBtn");
@@ -527,156 +527,80 @@ Office.onReady(async () => {
 
 /* ─── Convert Word → PDF ─── */
 async function convertToPDF() {
-  console.log("convertToPDF function called.");
   const fileInput = document.getElementById("uploadDocx");
   const status = document.getElementById("status");
   const file = fileInput.files[0];
 
+  if (!await isSessionValid()) {
+    status.innerText = "❌ Session expired. Please log in again.";
+    document.getElementById("main-ui").style.display = "none";
+    document.getElementById("login-container").style.display = "block";
+    return;
+  }
+
   if (!file) {
-    status.textContent = "❌ Select a .docx file.";
-    console.warn("No file selected for conversion.");
+    status.innerText = "❌ Select a .docx file.";
     return;
   }
-
-  // The check for cloudConvertApiKey being null is now redundant if hardcoded,
-  // but kept for robustness. It should never be null here.
-  if (!cloudConvertApiKey) {
-    status.textContent = "❌ CloudConvert API key is missing from code. Cannot proceed.";
-    console.error("CloudConvert API key is null or not set in the code.");
-    return;
-  }
-
-  const apiKey = cloudConvertApiKey; // Use the hardcoded key
 
   try {
-    status.textContent = "🔄 Creating conversion job…";
-    console.log("Attempting to create CloudConvert job...");
+    status.innerText = "🔄 Uploading...";
 
-    /* Step 1 — create job (upload → convert → export) */
+    const apiKey = "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiIxIiwianRpIjoiZTg2ODhhMzExMTBjNzNmNzdkZThjYWM2MmYxNjg3NzBkOGJhNjhhYWM5ZGIxMzNmNGJkMTQyZGJiZTdjZTQ3ZmY0ZjNmOTFkNzg0ZWU5MDQiLCJpYXQiOjE3NTE0Nzg2NzIuOTczNDQ5LCJuYmYiOjE3NTE0Nzg2NzIuOTczNDUxLCJleHAiOjQ5MDcxNTIyNzIuOTY4NjE1LCJzdWIiOiI3MjIzNTM3NCIsInNjb3BlcyI6WyJ0YXNrLnJlYWQiLCJ0YXNrLndyaXRlIl19.eJ4JRS_YscQUaV2T9ZVBYShHEkwBKyUnO-pVr5XLdd3PMVE_IkuJ7rEcQMwJUJEC8hnZ9DyukGgJgkQEG2y4l5XIqrdzWd6QnrLdRvE6-1JR1K70sdLLNTg9RGJl62kRA9DmXignS765kC8CGZgIafiZMnB53XHYNqIQ9_WgGq6eBQhYhNazxKK3EJwUdoPqrHz3sipBXLyfTBZD4Qd9e5x1AA059_iFGY0It9jbilG83r4zizB76IkXdLCddtYUyOHHFiXmKieUBF29h-cWHZx_eKTMuQ_hVTYtGgihn64zOFJp8liPMaa4qRPvK5750s1Y48mmIIx6-V0KDRJUCsyy-sVVVYFrrL9c5xwPcQnjrZkudBSpNhaO3iomRU8dssSWBwnsXTsWeSO8aIr-Hq3DTbV6CtPDVtf1nFHSafezbA_Mp2QVSH3LUG_bTvrjq5HqQTGb1-e_lncuND3ANvPitZs4gIf2kDMoG-Ptqy15y5I7WJ4CKG1gJkrXlKovUbl9S3BCm0ZhNBYR-nehroMyEz-8-NfQOmh3cj0zsmyrqKuzRbbd1C0jecwzXuYEJipTdJ8qTJjXDxbonnVtwwIPnjpOzCmJLfzVLXw1WVUVZ0ePDL8lmS5yMrt58ljf5V9Lx-a4Zh_nx0XYsJYaYz5hcVwM_JarQSv6iJ2lZF8"; // Replace this
+
     const jobRes = await fetch("https://api.cloudconvert.com/v2/jobs", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${apiKey}`,
+        Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
         tasks: {
-          upload: {
-            operation: "import/upload"
-          },
+          upload: { operation: "import/upload" },
           convert: {
             operation: "convert",
             input: "upload",
             input_format: "docx",
             output_format: "pdf"
           },
-          export: {
-            operation: "export/url",
-            input: "convert"
-          }
+          export: { operation: "export/url", input: "convert" }
         }
       })
     });
 
-    if (!jobRes.ok) {
-      let errorInfo = `CloudConvert API error: ${jobRes.status}`;
-      try {
-        const errorData = await jobRes.json();
-        if (errorData && errorData.message) {
-          errorInfo += ` - ${errorData.message}`;
-        } else if (errorData && errorData.errors && errorData.errors.length > 0) {
-          errorInfo += ` - ${errorData.errors[0].message || 'Unknown API error details'}`;
-        } else {
-          errorInfo += ` - (Raw response: ${JSON.stringify(errorData)})`;
-        }
-      } catch (e) {
-        errorInfo += ` - (Failed to parse error response body: ${e.message})`;
-      }
-      throw new Error(errorInfo);
-    }
-
     const job = await jobRes.json();
-    console.log("CloudConvert job created:", job);
+    const uploadTask = Object.values(job.data.tasks).find(t => t.name === "upload");
 
-    const uploadTask = Object.values(job.data.tasks)
-      .find(t => t.operation === "import/upload");
-
-    if (!uploadTask || !uploadTask.result || !uploadTask.result.form || !uploadTask.result.form.url) {
-      throw new Error("CloudConvert did not return expected upload task details.");
+    const formData = new FormData();
+    for (const key in uploadTask.result.form.parameters) {
+      formData.append(key, uploadTask.result.form.parameters[key]);
     }
+    formData.append("file", file);
 
-    /* Step 2 — upload DOCX */
-    status.textContent = "🔄 Uploading file…";
-    console.log("Attempting to upload file to CloudConvert...");
-    const fd = new FormData();
-    for (const k in uploadTask.result.form.parameters) {
-      fd.append(k, uploadTask.result.form.parameters[k]);
-    }
-    fd.append("file", file);
-
-    const uploadRes = await fetch(uploadTask.result.form.url, {
+    await fetch(uploadTask.result.form.url, {
       method: "POST",
-      body: fd
+      body: formData
     });
-    if (!uploadRes.ok) {
-      throw new Error(`CloudConvert upload failed with status: ${uploadRes.status}`);
-    }
-    console.log("File uploaded successfully.");
 
-
-    /* Step 3 — poll until finished */
-    status.textContent = "⏳ Converting…";
-    console.log("Polling CloudConvert job status...");
-    let exportTask;
-    while (true) {
+    status.innerText = "⏳ Converting...";
+    let done = false, exportTask;
+    while (!done) {
       const poll = await fetch(`https://api.cloudconvert.com/v2/jobs/${job.data.id}`, {
-        headers: {
-          "Authorization": `Bearer ${apiKey}`
-        }
+        headers: { Authorization: `Bearer ${apiKey}` }
       });
-      const info = await poll.json();
-      console.log("CloudConvert poll status:", info.data.status);
-      if (info.data.status === "finished") {
-        exportTask = info.data.tasks.find(t => t.name === "export");
-        break;
-      } else if (info.data.status === "error") {
-        throw new Error(`CloudConvert job failed: ${info.data.message || 'Unknown error during conversion.'}`);
-      }
-      await new Promise(r => setTimeout(r, 3000)); // Wait 3 seconds before next poll
+      const updatedJob = await poll.json();
+      done = updatedJob.data.status === "finished";
+      exportTask = updatedJob.data.tasks.find(t => t.name === "export");
+      if (!done) await new Promise(r => setTimeout(r, 3000));
     }
 
-    /* Step 4 — show link */
-    if (!exportTask || !exportTask.result || !exportTask.result.files || exportTask.result.files.length === 0) {
-      throw new Error("CloudConvert did not return an exported file URL.");
-    }
-    const url = exportTask.result.files[0].url;
-    status.innerHTML = `✅ Done! <a href="${url}" target="_blank">Download PDF</a>`;
-    console.log("Conversion successful, PDF URL:", url);
-
-    // logConversion function will NOT work without Firebase authentication and Firestore instance.
-    // If you need logging, you MUST re-enable Firebase initialization and authentication.
-    // await logConversion(file.name, url, "success"); // <--- COMMENTED OUT
-
+    const fileUrl = exportTask.result.files[0].url;
+    status.innerHTML = `✅ Done! <a href="${fileUrl}" target="_blank">Download PDF</a>`;
   } catch (err) {
-    console.error("Conversion error:", err);
-    status.textContent = `❌ Conversion failed: ${err.message || "See console for details."}`;
-    // logConversion function will NOT work without Firebase authentication and Firestore instance.
-    // If you need logging, you MUST re-enable Firebase initialization and authentication.
-    // await logConversion(file ? file.name : "N/A", "N/A", "failed", err.message || "Unknown error"); // <--- COMMENTED OUT
+    console.error(err);
+    status.innerText = "❌ Conversion failed.";
   }
 }
-
-// The logConversion function depends on Firebase.
-// If you are no longer initializing Firebase in taskpane.js, this function will not work.
-/*
-async function logConversion(fileName, downloadUrl, status, errorMessage = null) {
-  // This function would need authInstance and dbInstance from Firebase
-  // If you've removed Firebase initialization, this will fail.
-  console.warn("logConversion attempted, but Firebase instances might be missing.");
-  // ... rest of the logConversion function ...
-}
-*/
-
 
 /* ─── Request Logout (opens mail client) ─── */
 async function requestLogout() {
