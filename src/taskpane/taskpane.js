@@ -568,8 +568,17 @@ async function convertToPDF() {
     }
 
     const job = await jobRes.json();
+
+    // ✅ Safeguard against unexpected API response
+    if (!job || !job.data || !job.data.tasks) {
+      throw new Error("❌ Unexpected response from CloudConvert: 'tasks' missing.");
+    }
+
     const uploadTask = Object.values(job.data.tasks).find(t => t.operation === "import/upload");
 
+    if (!uploadTask || !uploadTask.result || !uploadTask.result.form) {
+      throw new Error("❌ Upload task is missing necessary form data.");
+    }
     /* Upload file */
     status.textContent = "🔄 Uploading file…";
     const fd = new FormData();
