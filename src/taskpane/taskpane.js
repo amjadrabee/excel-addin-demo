@@ -497,11 +497,6 @@ import {
 const cloudConvertApiKey = "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiIxIiwianRpIjoiZTg2ODhhMzExMTBjNzNmNzdkZThjYWM2MmYxNjg3NzBkOGJhNjhhYWM5ZGIxMzNmNGJkMTQyZGJiZTdjZTQ3ZmY0ZjNmOTFkNzg0ZWU5MDQiLCJpYXQiOjE3NTE0Nzg2NzIuOTczNDQ5LCJuYmYiOjE3NTE0Nzg2NzIuOTczNDUxLCJleHAiOjQ5MDcxNTIyNzIuOTY4NjE1LCJzdWIiOiI3MjIzNTM3NCIsInNjb3BlcyI6WyJ0YXNrLnJlYWQiLCJ0YXNrLndyaXRlIl19.eJ4JRS_YscQUaV2T9ZVBYShHEkwBKyUnO-pVr5XLdd3PMVE_IkuJ7rEcQMwJUJEC8hnZ9DyukGgJgkQEG2y4l5XIqrdzWd6QnrLdRvE6-1JR1K70sdLLNTg9RGJl62kRA9DmXignS765kC8CGZgIafiZMnB53XHYNqIQ9_WgGq6eBQhYhNazxKK3EJwUdoPqrHz3sipBXLyfTBZD4Qd9e5x1AA059_iFGY0It9jbilG83r4zizB76IkXdLCddtYUyOHHFiXmKieUBF29h-cWHZx_eKTMuQ_hVTYtGgihn64zOFJp8liPMaa4qRPvK5750s1Y48mmIIx6-V0KDRJUCsyy-sVVVYFrrL9c5xwPcQnjrZkudBSpNhaO3iomRU8dssSWBwnsXTsWeSO8aIr-Hq3DTbV6CtPDVtf1nFHSafezbA_Mp2QVSH3LUG_bTvrjq5HqQTGb1-e_lncuND3ANvPitZs4gIf2kDMoG-Ptqy15y5I7WJ4CKG1gJkrXlKovUbl9S3BCm0ZhNBYR-nehroMyEz-8-NfQOmh3cj0zsmyrqKuzRbbd1C0jecwzXuYEJipTdJ8qTJjXDxbonnVtwwIPnjpOzCmJLfzVLXw1WVUVZ0ePDL8lmS5yMrt58ljf5V9Lx-a4Zh_nx0XYsJYaYz5hcVwM_JarQSv6iJ2lZF8";
 // --- END HARDCODED KEY ---
 
-// The `ensureFirebase` function is no longer needed since the key is hardcoded and
-// we are not fetching Firebase config from Firestore in this version.
-// If you need Firebase for authentication/session management, you'll need to re-introduce
-// Firebase initialization and make sure getAuthInstance and getDbInstance are called elsewhere.
-
 
 /* ─── Office entry point ─── */
 Office.onReady(async () => {
@@ -525,33 +520,32 @@ Office.onReady(async () => {
   }
 });
 
+
+
 /* ─── Convert Word → PDF ─── */
 async function convertToPDF() {
   const fileInput = document.getElementById("uploadDocx");
   const status = document.getElementById("status");
   const file = fileInput.files[0];
 
-  // if (!await isSessionValid()) {
-  //   status.innerText = "❌ Session expired. Please log in again.";
-  //   document.getElementById("main-ui").style.display = "none";
-  //   document.getElementById("login-container").style.display = "block";
-  //   return;
-  // }
-
   if (!file) {
-    status.innerText = "❌ Select a .docx file.";
+    status.textContent = "❌ Select a .docx file.";
+    return;
+  }
+
+  if (!cloudConvertApiKey) {
+    status.textContent = "❌ API key not set in code.";
+    console.error("❌ CloudConvert API key missing.");
     return;
   }
 
   try {
-    status.innerText = "🔄 Uploading...";
-
-    const apiKey = "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiIxIiwianRpIjoiZTg2ODhhMzExMTBjNzNmNzdkZThjYWM2MmYxNjg3NzBkOGJhNjhhYWM5ZGIxMzNmNGJkMTQyZGJiZTdjZTQ3ZmY0ZjNmOTFkNzg0ZWU5MDQiLCJpYXQiOjE3NTE0Nzg2NzIuOTczNDQ5LCJuYmYiOjE3NTE0Nzg2NzIuOTczNDUxLCJleHAiOjQ5MDcxNTIyNzIuOTY4NjE1LCJzdWIiOiI3MjIzNTM3NCIsInNjb3BlcyI6WyJ0YXNrLnJlYWQiLCJ0YXNrLndyaXRlIl19.eJ4JRS_YscQUaV2T9ZVBYShHEkwBKyUnO-pVr5XLdd3PMVE_IkuJ7rEcQMwJUJEC8hnZ9DyukGgJgkQEG2y4l5XIqrdzWd6QnrLdRvE6-1JR1K70sdLLNTg9RGJl62kRA9DmXignS765kC8CGZgIafiZMnB53XHYNqIQ9_WgGq6eBQhYhNazxKK3EJwUdoPqrHz3sipBXLyfTBZD4Qd9e5x1AA059_iFGY0It9jbilG83r4zizB76IkXdLCddtYUyOHHFiXmKieUBF29h-cWHZx_eKTMuQ_hVTYtGgihn64zOFJp8liPMaa4qRPvK5750s1Y48mmIIx6-V0KDRJUCsyy-sVVVYFrrL9c5xwPcQnjrZkudBSpNhaO3iomRU8dssSWBwnsXTsWeSO8aIr-Hq3DTbV6CtPDVtf1nFHSafezbA_Mp2QVSH3LUG_bTvrjq5HqQTGb1-e_lncuND3ANvPitZs4gIf2kDMoG-Ptqy15y5I7WJ4CKG1gJkrXlKovUbl9S3BCm0ZhNBYR-nehroMyEz-8-NfQOmh3cj0zsmyrqKuzRbbd1C0jecwzXuYEJipTdJ8qTJjXDxbonnVtwwIPnjpOzCmJLfzVLXw1WVUVZ0ePDL8lmS5yMrt58ljf5V9Lx-a4Zh_nx0XYsJYaYz5hcVwM_JarQSv6iJ2lZF8"; // Replace this
+    status.textContent = "🔄 Creating conversion job…";
 
     const jobRes = await fetch("https://api.cloudconvert.com/v2/jobs", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${apiKey}`,
+        "Authorization": `Bearer ${cloudConvertApiKey}`,
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
@@ -568,39 +562,62 @@ async function convertToPDF() {
       })
     });
 
-    const job = await jobRes.json();
-    const uploadTask = Object.values(job.data.tasks).find(t => t.name === "upload");
-
-    const formData = new FormData();
-    for (const key in uploadTask.result.form.parameters) {
-      formData.append(key, uploadTask.result.form.parameters[key]);
+    if (!jobRes.ok) {
+      const errorJson = await jobRes.json().catch(() => ({}));
+      throw new Error(`CloudConvert error ${jobRes.status}: ${errorJson.message || "Unknown error"}`);
     }
-    formData.append("file", file);
 
-    await fetch(uploadTask.result.form.url, {
+    const job = await jobRes.json();
+    const uploadTask = Object.values(job.data.tasks).find(t => t.operation === "import/upload");
+
+    /* Upload file */
+    status.textContent = "🔄 Uploading file…";
+    const fd = new FormData();
+    for (const k in uploadTask.result.form.parameters) {
+      fd.append(k, uploadTask.result.form.parameters[k]);
+    }
+    fd.append("file", file);
+
+    const uploadRes = await fetch(uploadTask.result.form.url, {
       method: "POST",
-      body: formData
+      body: fd
     });
 
-    status.innerText = "⏳ Converting...";
-    let done = false, exportTask;
-    while (!done) {
+    if (!uploadRes.ok) throw new Error(`Upload failed with status: ${uploadRes.status}`);
+
+    /* Poll for result */
+    status.textContent = "⏳ Converting…";
+    let exportTask;
+    while (true) {
       const poll = await fetch(`https://api.cloudconvert.com/v2/jobs/${job.data.id}`, {
-        headers: { Authorization: `Bearer ${apiKey}` }
+        headers: { Authorization: `Bearer ${cloudConvertApiKey}` }
       });
-      const updatedJob = await poll.json();
-      done = updatedJob.data.status === "finished";
-      exportTask = updatedJob.data.tasks.find(t => t.name === "export");
-      if (!done) await new Promise(r => setTimeout(r, 3000));
+
+      const pollData = await poll.json();
+
+      if (pollData.data.status === "finished") {
+        exportTask = pollData.data.tasks.find(t => t.name === "export");
+        break;
+      } else if (pollData.data.status === "error") {
+        throw new Error("❌ CloudConvert job failed.");
+      }
+
+      await new Promise(r => setTimeout(r, 3000));
     }
 
-    const fileUrl = exportTask.result.files[0].url;
-    status.innerHTML = `✅ Done! <a href="${fileUrl}" target="_blank">Download PDF</a>`;
+    if (!exportTask || !exportTask.result || !exportTask.result.files?.[0]?.url) {
+      throw new Error("❌ No download URL returned.");
+    }
+
+    const downloadUrl = exportTask.result.files[0].url;
+    status.innerHTML = `✅ Done! <a href="${downloadUrl}" target="_blank">Download PDF</a>`;
+
   } catch (err) {
-    console.error(err);
-    status.innerText = "❌ Conversion failed.";
+    console.error("Conversion error:", err);
+    status.textContent = `❌ Failed: ${err.message || "See console for details."}`;
   }
 }
+
 
 /* ─── Request Logout (opens mail client) ─── */
 async function requestLogout() {
