@@ -534,18 +534,33 @@ async function convertToPDF() {
   }
 
   if (!cloudConvertApiKey) {
-    status.textContent = "❌ API key not set in code.";
-    console.error("❌ CloudConvert API key missing.");
+    status.textContent = "❌ CloudConvert API key not loaded.";
+    console.error("Missing API key.");
     return;
   }
 
+  const apiKey = cloudConvertApiKey;
+
   try {
+    status.textContent = "🔄 Checking job queue…";
+
+    // Optional: prevent overloading with active jobs
+    const activeJobsRes = await fetch("https://api.cloudconvert.com/v2/jobs?status=processing", {
+      headers: {
+        Authorization: `Bearer ${apiKey}`
+      }
+    });
+    const activeJobsData = await activeJobsRes.json();
+    if (activeJobsData.data && activeJobsData.data.length >= 2) {
+      throw new Error("⏳ Too many active conversions. Please wait and try again.");
+    }
+
     status.textContent = "🔄 Creating conversion job…";
 
     const jobRes = await fetch("https://api.cloudconvert.com/v2/jobs", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${cloudConvertApiKey}`,
+        Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
@@ -563,69 +578,76 @@ async function convertToPDF() {
     });
 
     if (!jobRes.ok) {
-      const errorJson = await jobRes.json().catch(() => ({}));
-      throw new Error(`CloudConvert error ${jobRes.status}: ${errorJson.message || "Unknown error"}`);
+      let errorInfo = `CloudConvert API error ${jobRes.status}`;
+      try {
+        const errorData = await jobRes.json();
+        if (errorData.message) {
+          errorInfo += ` - ${errorData.message}`;
+        } else if (errorData.errors && errorData.errors.length > 0) {
+          errorInfo += ` - ${errorData.errors[0].message}`;
+        }
+      } catch (e) {
+        errorInfo += ` - (Could not parse error response)`;
+      }
+      throw new Error(errorInfo);
     }
 
     const job = await jobRes.json();
-
-    // ✅ Safeguard against unexpected API response
-    if (!job || !job.data || !job.data.tasks) {
-      throw new Error("❌ Unexpected response from CloudConvert: 'tasks' missing.");
-    }
-
     const uploadTask = Object.values(job.data.tasks).find(t => t.operation === "import/upload");
 
-    if (!uploadTask || !uploadTask.result || !uploadTask.result.form) {
-      throw new Error("❌ Upload task is missing necessary form data.");
+    if (!uploadTask?.result?.form?.url || !uploadTask?.result?.form?.parameters) {
+      throw new Error("❌ Failed to get upload parameters from CloudConvert.");
     }
-    /* Upload file */
+
     status.textContent = "🔄 Uploading file…";
-    const fd = new FormData();
+
+    const formData = new FormData();
     for (const k in uploadTask.result.form.parameters) {
-      fd.append(k, uploadTask.result.form.parameters[k]);
+      formData.append(k, uploadTask.result.form.parameters[k]);
     }
-    fd.append("file", file);
+    formData.append("file", file);
 
     const uploadRes = await fetch(uploadTask.result.form.url, {
       method: "POST",
-      body: fd
+      body: formData
     });
 
-    if (!uploadRes.ok) throw new Error(`Upload failed with status: ${uploadRes.status}`);
+    if (!uploadRes.ok) {
+      throw new Error(`❌ Upload failed with status: ${uploadRes.status}`);
+    }
 
-    /* Poll for result */
     status.textContent = "⏳ Converting…";
+
     let exportTask;
     while (true) {
-      const poll = await fetch(`https://api.cloudconvert.com/v2/jobs/${job.data.id}`, {
-        headers: { Authorization: `Bearer ${cloudConvertApiKey}` }
+      const pollRes = await fetch(`https://api.cloudconvert.com/v2/jobs/${job.data.id}`, {
+        headers: { Authorization: `Bearer ${apiKey}` }
       });
+      const info = await pollRes.json();
 
-      const pollData = await poll.json();
-
-      if (pollData.data.status === "finished") {
-        exportTask = pollData.data.tasks.find(t => t.name === "export");
+      if (info.data.status === "finished") {
+        exportTask = info.data.tasks.find(t => t.name === "export");
         break;
-      } else if (pollData.data.status === "error") {
-        throw new Error("❌ CloudConvert job failed.");
+      } else if (info.data.status === "error") {
+        throw new Error(`❌ Conversion failed: ${info.data.message || "Unknown error"}`);
       }
 
-      await new Promise(r => setTimeout(r, 3000));
+      await new Promise(r => setTimeout(r, 3000)); // Wait 3s
     }
 
-    if (!exportTask || !exportTask.result || !exportTask.result.files?.[0]?.url) {
-      throw new Error("❌ No download URL returned.");
+    if (!exportTask?.result?.files?.[0]?.url) {
+      throw new Error("❌ Exported file URL not available.");
     }
 
-    const downloadUrl = exportTask.result.files[0].url;
-    status.innerHTML = `✅ Done! <a href="${downloadUrl}" target="_blank">Download PDF</a>`;
+    const url = exportTask.result.files[0].url;
+    status.innerHTML = `✅ Done! <a href="${url}" target="_blank">Download PDF</a>`;
 
   } catch (err) {
     console.error("Conversion error:", err);
-    status.textContent = `❌ Failed: ${err.message || "See console for details."}`;
+    status.textContent = `❌ ${err.message || "Conversion failed. See console."}`;
   }
 }
+
 
 
 /* ─── Request Logout (opens mail client) ─── */
