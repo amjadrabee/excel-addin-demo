@@ -656,7 +656,7 @@ async function requestLogout() {
   const email = localStorage.getItem("email") || "Unknown User";
   const subject = encodeURIComponent("Logout Request");
   const body = encodeURIComponent(`${email} requests logout from Excel Add‑in.`);
-  window.location.href = `mailto:support@yourcompany.com?subject=${subject}&body=${body}`;
+  window.location.href = `mailto:aecoresolutions@gmail.com?subject=${subject}&body=${body}`;
 
   /* local clean‑up */
   // logoutRequestLocal depends on Firebase. If Firebase is not initialized, this won't work.
