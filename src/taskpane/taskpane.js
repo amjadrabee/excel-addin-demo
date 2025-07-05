@@ -531,12 +531,12 @@ async function convertToPDF() {
   const status = document.getElementById("status");
   const file = fileInput.files[0];
 
-  if (!await isSessionValid()) {
-    status.innerText = "❌ Session expired. Please log in again.";
-    document.getElementById("main-ui").style.display = "none";
-    document.getElementById("login-container").style.display = "block";
-    return;
-  }
+  // if (!await isSessionValid()) {
+  //   status.innerText = "❌ Session expired. Please log in again.";
+  //   document.getElementById("main-ui").style.display = "none";
+  //   document.getElementById("login-container").style.display = "block";
+  //   return;
+  // }
 
   if (!file) {
     status.innerText = "❌ Select a .docx file.";
